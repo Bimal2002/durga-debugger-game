@@ -1,0 +1,15 @@
+{
+  "name": "Durga Debugger",
+  "short_name": "Durga Debugger",
+  "description": "A Durga Puja / Dussehra archery game \u2014 Maa Durga strikes down the asuras. By bimal.os",
+  "start_url": "index.html",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0a1f",
+  "theme_color": "#0d0a1f",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

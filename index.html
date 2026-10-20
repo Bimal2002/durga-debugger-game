@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d0a1f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+  :root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  html,body{height:100%}
+  body{margin:0;font:14px system-ui,sans-serif}
+  img{max-width:100%}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<title>Durga Debugger</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yatra+One&family=JetBrains+Mono:wght@400;700;800&family=Baloo+Da+2:wght@500;700;800&display=swap">
+<style>
+  /* Layout: full-bleed night sky with Mahishasura above + Maa Durga's bow below; HUD top, hint bottom.
+     Committed dark Durga-Puja theme — pandal night, diya gold, alpana red-white, dev-terminal green. */
+  :root{
+    --night:#0d0a1f;
+    --night2:#1a1033;
+    --gold:#f6c445;       /* diya / dhunuchi gold */
+    --marigold:#ff7a1a;   /* genda phool */
+    --red:#e01f3d;        /* sindoor / alpana red */
+    --white:#fff6ea;      /* shonkho white */
+    --term:#39d98a;       /* terminal green */
+    --ink:#f3ecff;
+    --muted:#9a8cc4;
+    --display:"Yatra One", "Baloo Da 2", Georgia, "DejaVu Serif", serif;
+    --bong:"Baloo Da 2", "Yatra One", Georgia, serif;
+    --mono:"JetBrains Mono", ui-monospace, "DejaVu Sans Mono", monospace;
+    color-scheme: dark;
+  }
+  html,body{height:100%}
+  body{
+    margin:0;background:radial-gradient(120% 80% at 50% -8%, #2a1a5e 0%, var(--night) 52%, #060410 100%);
+    color:var(--ink);font-family:var(--mono);overflow:hidden;
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  }
+  #stage{position:fixed;inset:0;touch-action:none}
+  canvas{display:block;width:100%;height:100%}
+
+  .hud{
+    position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);
+    display:flex;justify-content:space-between;align-items:flex-start;
+    padding:14px max(16px,env(safe-area-inset-left,0px)) 0 max(16px,env(safe-area-inset-right,0px));
+    pointer-events:none;z-index:5;
+  }
+  .tag{font-weight:800;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--term);display:flex;align-items:center;gap:.5em}
+  .tag b{color:var(--gold)}
+  .heads-left{text-align:right;font-weight:800;font-size:.68rem;letter-spacing:.08em;color:var(--muted)}
+  .heads-left .n{display:block;font-family:var(--display);font-size:1.7rem;line-height:1;color:var(--red)}
+
+  .screen{
+    position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;text-align:center;
+    padding:0 max(22px,env(safe-area-inset-left,0px));gap:1.05rem;
+    background:radial-gradient(130% 90% at 50% 22%, rgba(42,26,94,.70), rgba(6,4,16,.94));
+    backdrop-filter:blur(2px);
+  }
+  .eyebrow{font-weight:800;font-size:.72rem;letter-spacing:.24em;text-transform:uppercase;color:var(--term)}
+  h1{font-family:var(--display);font-weight:400;margin:0;line-height:.98;text-wrap:balance;
+     font-size:clamp(2.5rem,12.5vw,4.4rem);color:var(--gold);text-shadow:0 0 28px rgba(246,196,69,.35)}
+  h1 .sub{display:block;color:var(--red);font-size:.44em;letter-spacing:.02em}
+  .bong{font-family:var(--bong);font-weight:800;color:var(--marigold);font-size:clamp(1.3rem,6.5vw,2rem);margin:0;line-height:1.1}
+  .term-box{
+    width:min(540px,92vw);background:rgba(10,7,25,.82);border:1px solid rgba(57,217,138,.35);
+    border-radius:12px;padding:16px 18px;text-align:left;font-size:.82rem;line-height:1.7;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);
+  }
+  .term-box .ln{white-space:pre-wrap;color:var(--muted)}
+  .term-box .ln .c{color:var(--term)} .term-box .ln .w{color:var(--gold)} .term-box .ln .r{color:var(--red)}
+  .cursor{display:inline-block;width:.6ch;height:1.1em;background:var(--term);vertical-align:-.18em;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  p.lead{margin:0;color:var(--muted);font-size:.9rem;max-width:34ch;line-height:1.6}
+  .btn{font-family:var(--mono);font-weight:800;font-size:.95rem;letter-spacing:.06em;color:#1a0f00;
+    background:linear-gradient(180deg,var(--gold),var(--marigold));border:none;border-radius:999px;
+    padding:.95em 2.2em;cursor:pointer;pointer-events:auto;box-shadow:0 10px 30px rgba(255,122,26,.4);transition:transform .12s ease}
+  .btn:active{transform:scale(.95)}
+  .btn:focus-visible{outline:3px solid var(--term);outline-offset:3px}
+  .handle{font-weight:700;color:var(--gold);font-size:.9rem;letter-spacing:.04em}
+  .handle span{color:var(--muted)}
+  .hint{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);
+    text-align:center;color:var(--muted);font-size:.72rem;letter-spacing:.05em;z-index:5;pointer-events:none;padding:0 16px}
+  .hint b{color:var(--gold)}
+  [hidden]{display:none!important}
+  @media (prefers-reduced-motion: reduce){.cursor{animation:none}}
+</style>
+
+<div id="stage"><canvas id="c"></canvas></div>
+
+<div class="hud" id="hud" hidden>
+  <div class="tag">🔱 DURGA<b>DEBUGGER</b></div>
+  <div class="heads-left">asuras online<span class="n" id="count">10</span></div>
+</div>
+
+<div class="hint" id="hint" hidden>drag to aim · release — <b>Maa Durga strikes</b> 🏹</div>
+
+<!-- INTRO -->
+<section class="screen" id="introScreen">
+  <div class="eyebrow">bijoya dashami · build v10.0</div>
+  <h1>Durga<span class="sub">Debugger</span></h1>
+  <div class="term-box" id="termBox"></div>
+  <button class="btn" id="startBtn">🔱 TAKE UP THE BOW</button>
+  <div class="handle"><span>a durga puja drop by</span> @bimal.os</div>
+</section>
+
+<!-- WIN -->
+<section class="screen" id="winScreen" hidden>
+  <div class="eyebrow">build passed ✓ · asuras killed 10/10</div>
+  <h1>Happy<span class="sub">Dussehra</span></h1>
+  <p class="bong">&amp; a blessed Durga Puja</p>
+  <p class="lead">Good deployed to production. Evil rolled back.<br>Maa Durga triumphs over Mahishasura.</p>
+  <button class="btn" id="againBtn">↻ REBUILD</button>
+  <div class="handle"><span>from</span> @bimal.os 🙏</div>
+</section>
+
+<script>
+(function(){
+  "use strict";
+  const canvas=document.getElementById("c"), ctx=canvas.getContext("2d");
+  const hud=document.getElementById("hud"), countEl=document.getElementById("count");
+  const hint=document.getElementById("hint");
+  const introScreen=document.getElementById("introScreen"), winScreen=document.getElementById("winScreen");
+  const startBtn=document.getElementById("startBtn"), againBtn=document.getElementById("againBtn");
+  const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const demo=location.hash.replace("#","")==="demo";
+
+  let W=0,H=0,DPR=1;
+  function resize(){
+    DPR=Math.min(window.devicePixelRatio||1,2);
+    W=canvas.clientWidth; H=canvas.clientHeight;
+    canvas.width=Math.round(W*DPR); canvas.height=Math.round(H*DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0); layout();
+  }
+  window.addEventListener("resize",resize);
+
+  // audio
+  let AC=null;
+  function ensureAudio(){ if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}} if(AC&&AC.state==="suspended")AC.resume(); }
+  function beep(f,d,t,g){ if(!AC)return; try{const o=AC.createOscillator(),ga=AC.createGain();o.type=t||"triangle";o.frequency.value=f;ga.gain.value=0;o.connect(ga);ga.connect(AC.destination);const n=AC.currentTime;ga.gain.linearRampToValueAtTime(g||.18,n+.01);ga.gain.exponentialRampToValueAtTime(.0001,n+d);o.start(n);o.stop(n+d);}catch(e){} }
+  const sndShoot=()=>beep(540,.12,"square",.1);
+  const sndHit=()=>{beep(180,.18,"sawtooth",.16);beep(90,.3,"sine",.12);};
+  const sndWin=()=>[523,659,784,1047,1319].forEach((f,i)=>setTimeout(()=>beep(f,.55,"triangle",.13),i*130));
+
+  const VICES=["ego","anger","greed","pride","lust","envy","attachment","jealousy","cruelty","sloth"];
+  let state="intro";
+  let heads=[], arrows=[], particles=[], floaters=[], killed=0;
+  let bow={x:0,y:0,r:30,angle:-Math.PI/2};
+  let durga={cx:0,cy:0,S:40};
+  let aim=null, burnT=0;
+
+  function layout(){
+    durga.S=Math.max(44,Math.min(W,H)*0.1);
+    durga.cx=W/2; durga.cy=H-Math.max(140,H*0.19);
+    bow.x=durga.cx; bow.y=durga.cy-durga.S*0.4; bow.r=durga.S*0.78;
+    placeHeads();
+  }
+  function placeHeads(){
+    const cx=W/2, top=Math.max(96,H*0.17);
+    const r=Math.max(16,Math.min(W*0.052,30));
+    const tiers=[{n:6,y:top,spread:Math.min(W*0.42,260)},{n:4,y:top+r*2.5,spread:Math.min(W*0.26,170)}];
+    const positions=[];
+    tiers.forEach(t=>{ for(let i=0;i<t.n;i++){const f=t.n===1?0:(i/(t.n-1)-.5)*2; positions.push({x:cx+f*t.spread,y:t.y,bob:Math.random()*6.28});} });
+    if(heads.length===0){
+      heads=positions.map((p,i)=>({bx:p.x,by:p.y,x:p.x,y:p.y,r:r,bob:p.bob,vice:VICES[i],alive:true}));
+    }else{ heads.forEach((hd,i)=>{if(positions[i]){hd.bx=positions[i].x;hd.by=positions[i].y;hd.r=r;}}); }
+  }
+  function reset(){ heads=[];arrows=[];particles=[];floaters=[];killed=0;burnT=0; placeHeads(); countEl.textContent="10"; }
+
+  // input
+  function toLocal(e){const rect=canvas.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return {x:t.clientX-rect.left,y:t.clientY-rect.top};}
+  function onDown(e){ if(state!=="playing")return; e.preventDefault(); ensureAudio(); aim=toLocal(e); updateAngle(); }
+  function onMove(e){ if(state!=="playing"||!aim)return; e.preventDefault(); aim=toLocal(e); updateAngle(); }
+  function onUp(e){ if(state!=="playing"||!aim)return; e.preventDefault(); fire(bow.angle); aim=null; }
+  function updateAngle(){ if(!aim)return; bow.angle=Math.atan2(aim.y-bow.y,aim.x-bow.x); }
+  canvas.addEventListener("pointerdown",onDown);
+  canvas.addEventListener("pointermove",onMove);
+  window.addEventListener("pointerup",onUp);
+
+  function fire(angle){
+    const sp=Math.max(W,H)*1.15;
+    arrows.push({x:bow.x,y:bow.y,vx:Math.cos(angle)*sp,vy:Math.sin(angle)*sp,ang:angle,life:0});
+    sndShoot();
+  }
+  function burst(x,y,color){
+    const n=reduce?10:26;
+    for(let i=0;i<n;i++){const a=Math.random()*6.28,s=60+Math.random()*260;
+      particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-40,life:0,max:.7+Math.random()*.6,col:color,size:2+Math.random()*3});}
+  }
+  function floatText(x,y,txt){ floaters.push({x,y,txt,life:0,max:1.1}); }
+  function killHead(hd){
+    if(!hd.alive)return;
+    hd.alive=false;killed++; countEl.textContent=String(10-killed);
+    burst(hd.x,hd.y,"#ff7a1a");burst(hd.x,hd.y,"#f6c445");
+    floatText(hd.x,hd.y-hd.r-6,"✓ "+hd.vice); sndHit();
+    if(killed>=10) beginBurn();
+  }
+  function beginBurn(){ state="burning"; burnT=0; hint.hidden=true; }
+
+  // demo autoplay
+  let demoTimer=0;
+  function demoStep(dt){
+    demoTimer-=dt; if(demoTimer>0)return;
+    const target=heads.find(h=>h.alive); if(!target)return;
+    bow.angle=Math.atan2(target.y-bow.y,target.x-bow.x);
+    fire(bow.angle); demoTimer=0.5;
+  }
+
+  // loop
+  let last=0;
+  function frame(ts){ const dt=Math.min(0.05,(ts-last)/1000||0); last=ts; update(dt); draw(); requestAnimationFrame(frame); }
+
+  function update(dt){
+    const t=performance.now()/1000;
+    heads.forEach(hd=>{ hd.x=hd.bx+Math.sin(t*1.3+hd.bob)*hd.r*0.5; hd.y=hd.by+Math.cos(t*1.1+hd.bob)*hd.r*0.22; });
+    if(state==="playing"&&demo) demoStep(dt);
+    for(let i=arrows.length-1;i>=0;i--){
+      const a=arrows[i]; a.x+=a.vx*dt; a.y+=a.vy*dt; a.life+=dt; let hit=false;
+      for(const hd of heads){ if(!hd.alive)continue; const dx=a.x-hd.x,dy=a.y-hd.y; if(dx*dx+dy*dy<(hd.r+6)*(hd.r+6)){killHead(hd);hit=true;break;} }
+      if(hit||a.x<-40||a.x>W+40||a.y<-60||a.y>H+40||a.life>3) arrows.splice(i,1);
+    }
+    for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.life+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=520*dt;p.vx*=0.98;if(p.life>=p.max)particles.splice(i,1);}
+    for(let i=floaters.length-1;i>=0;i--){const f=floaters[i];f.life+=dt;f.y-=28*dt;if(f.life>=f.max)floaters.splice(i,1);}
+    if(state==="burning"){ burnT+=dt;
+      if(burnT<2.4&&Math.random()<0.6) burst(W/2+(Math.random()-.5)*W*0.5,H*0.32+(Math.random()-.5)*H*0.2,Math.random()<.5?"#ff7a1a":"#e01f3d");
+      if(burnT>=2.6) showWin();
+    }
+    if(state==="win"){ if(Math.random()<0.5){const x=Math.random()*W,y=Math.random()*H*0.55;
+      burst(x,y,["#f6c445","#ff7a1a","#e01f3d","#39d98a","#ff5fa2","#fff6ea"][Math.floor(Math.random()*6)]);} }
+  }
+
+  // ---------- drawing ----------
+  function draw(){
+    ctx.clearRect(0,0,W,H); drawStars();
+    if(state==="win"){ drawDurga(); drawParticles(); return; }
+    const effA = state==="burning" ? Math.max(0,1-burnT/2.2) : 1;
+    drawMahishasura(effA);
+    if(state==="playing"&&aim){
+      ctx.save();ctx.setLineDash([4,10]);ctx.lineWidth=2;ctx.strokeStyle="rgba(57,217,138,.6)";
+      ctx.beginPath();ctx.moveTo(bow.x,bow.y);
+      ctx.lineTo(bow.x+Math.cos(bow.angle)*Math.max(W,H),bow.y+Math.sin(bow.angle)*Math.max(W,H));
+      ctx.stroke();ctx.restore();
+    }
+    if(state==="playing"||state==="burning") drawDurgaWarrior();
+    drawArrows(); drawParticles(); drawFloaters();
+  }
+
+  let stars=null;
+  function drawStars(){
+    if(!stars){stars=[];for(let i=0;i<64;i++)stars.push({x:Math.random(),y:Math.random()*0.7,r:Math.random()*1.4+.3,p:Math.random()*6});}
+    const t=performance.now()/1000; ctx.save();
+    stars.forEach(s=>{ctx.globalAlpha=0.3+0.5*Math.abs(Math.sin(t*0.8+s.p));ctx.fillStyle="#fff3c4";ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,7);ctx.fill();});
+    ctx.restore();
+  }
+
+  function drawMahishasura(alpha){
+    ctx.save(); ctx.globalAlpha=alpha;
+    const cx=W/2, bodyTop=Math.max(96,H*0.17)+(heads.length?heads[0].r:20);
+    const bw=Math.min(W*0.72,440), bh=H*0.40;
+    // two big buffalo horns rising behind the heads
+    ctx.strokeStyle="#5b3a1a";ctx.lineWidth=Math.max(7,bw*0.03);ctx.lineCap="round";
+    const hy=Math.max(96,H*0.17)-6, hr=bw*0.22;
+    ctx.beginPath();ctx.moveTo(cx-bw*0.16,hy);ctx.quadraticCurveTo(cx-hr,hy-hr*0.9,cx-hr*1.15,hy-hr*0.1);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(cx+bw*0.16,hy);ctx.quadraticCurveTo(cx+hr,hy-hr*0.9,cx+hr*1.15,hy-hr*0.1);ctx.stroke();
+    // body
+    const g=ctx.createLinearGradient(0,bodyTop,0,bodyTop+bh);
+    g.addColorStop(0,"#43204d");g.addColorStop(1,"#1a1033");
+    ctx.fillStyle=g;
+    ctx.beginPath();ctx.moveTo(cx-bw/2,bodyTop+bh);
+    ctx.quadraticCurveTo(cx-bw*0.55,bodyTop+bh*0.3,cx-bw*0.3,bodyTop+10);
+    ctx.lineTo(cx+bw*0.3,bodyTop+10);
+    ctx.quadraticCurveTo(cx+bw*0.55,bodyTop+bh*0.3,cx+bw/2,bodyTop+bh);
+    ctx.closePath();ctx.fill();
+    ctx.restore();
+    heads.forEach(hd=>drawHead(hd,alpha));
+  }
+  function drawHead(hd,alpha){
+    ctx.save(); const alive=hd.alive; ctx.globalAlpha=alpha*(alive?1:0.12); const r=hd.r;
+    ctx.fillStyle=alive?"#3a2963":"#241a3f"; ctx.strokeStyle=alive?"#f6c445":"#4b3a7a"; ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(hd.x,hd.y,r,0,7);ctx.fill();ctx.stroke();
+    // small horns per asura
+    ctx.strokeStyle=alive?"#8a5a2a":"#3a2d55";ctx.lineWidth=2.4;ctx.lineCap="round";
+    ctx.beginPath();ctx.moveTo(hd.x-r*0.55,hd.y-r*0.7);ctx.quadraticCurveTo(hd.x-r*0.85,hd.y-r*1.1,hd.x-r*0.6,hd.y-r*1.25);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(hd.x+r*0.55,hd.y-r*0.7);ctx.quadraticCurveTo(hd.x+r*0.85,hd.y-r*1.1,hd.x+r*0.6,hd.y-r*1.25);ctx.stroke();
+    if(alive){
+      ctx.fillStyle="#e01f3d";
+      ctx.beginPath();ctx.arc(hd.x-r*0.32,hd.y-r*0.05,r*0.12,0,7);ctx.fill();
+      ctx.beginPath();ctx.arc(hd.x+r*0.32,hd.y-r*0.05,r*0.12,0,7);ctx.fill();
+      ctx.strokeStyle="#f6c445";ctx.lineWidth=2.4;
+      ctx.beginPath();ctx.moveTo(hd.x-r*0.4,hd.y+r*0.42);ctx.quadraticCurveTo(hd.x,hd.y+r*0.18,hd.x+r*0.4,hd.y+r*0.42);ctx.stroke();
+    }
+    ctx.globalAlpha=alpha*(alive?0.95:0.2); ctx.fillStyle=alive?"#9a8cc4":"#5b4a8a";
+    ctx.font="700 "+Math.max(8,r*0.4)+"px JetBrains Mono, DejaVu Sans Mono, monospace"; ctx.textAlign="center";
+    ctx.fillText(hd.vice,hd.x,hd.y+r+Math.max(10,r*0.6));
+    ctx.restore();
+  }
+
+  // Maa Durga as the player — a radiant ten-armed warrior at the foot of the battle,
+  // drawing a celestial bow that aims and strikes the asuras above.
+  function drawDurgaWarrior(){
+    const t=performance.now()/1000;
+    const cx=durga.cx, cy=durga.cy, S=durga.S;
+    ctx.save();
+    // aura
+    const grd=ctx.createRadialGradient(cx,cy-S*0.3,S*0.2,cx,cy-S*0.3,S*3.2);
+    grd.addColorStop(0,"rgba(246,196,69,.30)");grd.addColorStop(.5,"rgba(255,122,26,.08)");grd.addColorStop(1,"rgba(255,122,26,0)");
+    ctx.fillStyle=grd;ctx.beginPath();ctx.arc(cx,cy-S*0.3,S*3.2,0,7);ctx.fill();
+    // ten arms fanned out (shakti), with weapon-points
+    ctx.strokeStyle="#f6c445";ctx.lineWidth=Math.max(2.5,S*0.09);ctx.lineCap="round";
+    for(let i=0;i<10;i++){ const a=-Math.PI/2+(i-4.5)*0.30; const len=S*(1.05+0.08*Math.sin(t*2+i));
+      ctx.beginPath();ctx.moveTo(cx,cy-S*0.4);ctx.lineTo(cx+Math.cos(a)*len,cy-S*0.4+Math.sin(a)*len);ctx.stroke();
+      ctx.fillStyle="#fff6ea";ctx.beginPath();ctx.arc(cx+Math.cos(a)*len,cy-S*0.4+Math.sin(a)*len,S*0.05,0,7);ctx.fill();
+    }
+    // body (saree)
+    const bg=ctx.createLinearGradient(cx,cy-S*0.5,cx,cy+S*1.35);bg.addColorStop(0,"#ffd98a");bg.addColorStop(1,"#e01f3d");
+    ctx.fillStyle=bg;ctx.beginPath();ctx.moveTo(cx,cy-S*0.5);ctx.lineTo(cx-S*0.58,cy+S*1.35);ctx.quadraticCurveTo(cx,cy+S*1.5,cx+S*0.58,cy+S*1.35);ctx.closePath();ctx.fill();
+    // head + halo + bindi
+    ctx.fillStyle="#2a1a4a";ctx.beginPath();ctx.arc(cx,cy-S*0.78,S*0.28,0,7);ctx.fill();
+    ctx.strokeStyle="#f6c445";ctx.lineWidth=Math.max(2,S*0.05);ctx.beginPath();ctx.arc(cx,cy-S*0.78,S*0.44,0,7);ctx.stroke();
+    ctx.fillStyle="#e01f3d";ctx.beginPath();ctx.arc(cx,cy-S*0.84,S*0.045,0,7);ctx.fill();
+    ctx.restore();
+    // the celestial bow in her raised hands, aiming toward the asuras
+    const r=bow.r;
+    ctx.save(); ctx.translate(bow.x,bow.y); ctx.rotate(bow.angle+Math.PI/2);
+    ctx.strokeStyle="#f6c445";ctx.lineWidth=Math.max(3,r*0.16);ctx.lineCap="round";
+    const a1=Math.PI*0.62,a2=a1+Math.PI*1.76;
+    ctx.beginPath();ctx.arc(0,0,r,a1,a2,false);ctx.stroke();
+    ctx.strokeStyle="rgba(255,246,234,.85)";ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(Math.cos(a1)*r,Math.sin(a1)*r);ctx.lineTo(Math.cos(a2)*r,Math.sin(a2)*r);ctx.stroke();
+    ctx.strokeStyle="#39d98a";ctx.lineWidth=Math.max(2,r*0.12);
+    ctx.beginPath();ctx.moveTo(0,r*0.2);ctx.lineTo(0,-r*1.1);ctx.stroke();
+    drawTrishulTip(0,-r*1.15,r*0.5,"#39d98a");
+    ctx.restore();
+  }
+  function drawTrishulTip(x,y,s,col){
+    // three-pronged trishul head pointing up (in local rotated space)
+    ctx.save();ctx.translate(x,y);ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=Math.max(2,s*0.18);ctx.lineCap="round";
+    ctx.beginPath();ctx.moveTo(0,s*0.5);ctx.lineTo(0,-s);ctx.stroke();                 // center prong
+    ctx.beginPath();ctx.moveTo(-s*0.42,s*0.1);ctx.lineTo(-s*0.42,-s*0.65);ctx.stroke(); // left
+    ctx.beginPath();ctx.moveTo(s*0.42,s*0.1);ctx.lineTo(s*0.42,-s*0.65);ctx.stroke();   // right
+    ctx.beginPath();ctx.moveTo(-s*0.42,s*0.1);ctx.quadraticCurveTo(0,s*0.35,s*0.42,s*0.1);ctx.stroke(); // base curve
+    // prong tips
+    [[-0.42,-0.65],[0,-1],[0.42,-0.65]].forEach(p=>{ctx.beginPath();ctx.moveTo(p[0]*s,p[1]*s);ctx.lineTo(p[0]*s-s*0.1,p[1]*s+s*0.18);ctx.lineTo(p[0]*s+s*0.1,p[1]*s+s*0.18);ctx.closePath();ctx.fill();});
+    ctx.restore();
+  }
+
+  function drawArrows(){
+    arrows.forEach(a=>{
+      ctx.save(); ctx.translate(a.x,a.y); ctx.rotate(a.ang);
+      const L=Math.max(24,bow.r*1.3);
+      ctx.shadowColor="rgba(57,217,138,.6)";ctx.shadowBlur=8;
+      ctx.strokeStyle="#39d98a";ctx.lineWidth=3;ctx.lineCap="round";
+      ctx.beginPath();ctx.moveTo(-L,0);ctx.lineTo(L*0.45,0);ctx.stroke();
+      ctx.shadowBlur=0;
+      // trishul head (local: +x is forward -> draw rotated 90° so prongs face forward)
+      ctx.save();ctx.translate(L*0.45,0);ctx.rotate(-Math.PI/2);drawTrishulTip(0,0,bow.r*0.42,"#f6c445");ctx.restore();
+      ctx.strokeStyle="#e01f3d";ctx.lineWidth=2;
+      ctx.beginPath();ctx.moveTo(-L,0);ctx.lineTo(-L+8,-5);ctx.moveTo(-L,0);ctx.lineTo(-L+8,5);ctx.stroke();
+      ctx.restore();
+    });
+  }
+  function drawParticles(){
+    particles.forEach(p=>{const a=1-p.life/p.max;ctx.globalAlpha=Math.max(0,a);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,7);ctx.fill();});
+    ctx.globalAlpha=1;
+  }
+  function drawFloaters(){
+    ctx.save();ctx.textAlign="center";
+    floaters.forEach(f=>{const a=1-f.life/f.max;ctx.globalAlpha=Math.max(0,a);ctx.fillStyle="#39d98a";
+      ctx.font="800 14px JetBrains Mono, DejaVu Sans Mono, monospace";ctx.fillText(f.txt,f.x,f.y);});
+    ctx.restore();ctx.globalAlpha=1;
+  }
+
+  // Maa Durga — reverent luminous ten-armed silhouette with trishul, shown on victory
+  function drawDurga(){
+    const t=performance.now()/1000;
+    const cx=W/2, cy=H*0.34, S=Math.min(W,H)*0.16;
+    ctx.save();
+    // mandorla glow
+    const grd=ctx.createRadialGradient(cx,cy,S*0.2,cx,cy,S*3);
+    grd.addColorStop(0,"rgba(246,196,69,.45)");grd.addColorStop(.5,"rgba(255,122,26,.12)");grd.addColorStop(1,"rgba(255,122,26,0)");
+    ctx.fillStyle=grd;ctx.fillRect(0,0,W,H*0.75);
+    // alpana / chalchitra ring
+    ctx.strokeStyle="rgba(255,246,234,.5)";ctx.lineWidth=2;
+    for(let k=0;k<2;k++){ctx.beginPath();ctx.arc(cx,cy,S*(2.1+k*0.22),0,7);ctx.stroke();}
+    ctx.strokeStyle="rgba(224,31,61,.55)";
+    for(let i=0;i<24;i++){const a=i/24*6.28;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*S*2.1,cy+Math.sin(a)*S*2.1);ctx.lineTo(cx+Math.cos(a)*S*2.32,cy+Math.sin(a)*S*2.32);ctx.stroke();}
+    // ten arms (radiating), one bearing the trishul
+    ctx.strokeStyle="#f6c445";ctx.lineWidth=Math.max(3,S*0.07);ctx.lineCap="round";
+    for(let i=0;i<10;i++){ const a=-Math.PI/2+(i-4.5)*0.34; const len=S*(1.5+0.12*Math.sin(t*2+i));
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*len,cy+Math.sin(a)*len);ctx.stroke();
+      ctx.fillStyle="#fff6ea";ctx.beginPath();ctx.arc(cx+Math.cos(a)*len,cy+Math.sin(a)*len,S*0.06,0,7);ctx.fill();
+    }
+    // trishul held high in the upper-right hand (modest, blessed white)
+    drawTrishulTip(cx+S*1.15, cy-S*1.15, S*0.6, "#fff6ea");
+    // body (saree) + head + halo
+    const bg=ctx.createLinearGradient(cx,cy-S,cx,cy+S*1.8);
+    bg.addColorStop(0,"#ffd98a");bg.addColorStop(1,"#e01f3d");
+    ctx.fillStyle=bg;
+    ctx.beginPath();ctx.moveTo(cx,cy-S*0.1);ctx.lineTo(cx-S*0.8,cy+S*1.8);ctx.quadraticCurveTo(cx,cy+S*2.0,cx+S*0.8,cy+S*1.8);ctx.closePath();ctx.fill();
+    ctx.fillStyle="#2a1a4a";ctx.beginPath();ctx.arc(cx,cy-S*0.35,S*0.34,0,7);ctx.fill(); // head
+    ctx.strokeStyle="#f6c445";ctx.lineWidth=Math.max(2,S*0.05);ctx.beginPath();ctx.arc(cx,cy-S*0.35,S*0.5,0,7);ctx.stroke(); // halo
+    // third eye bindi
+    ctx.fillStyle="#e01f3d";ctx.beginPath();ctx.arc(cx,cy-S*0.42,S*0.05,0,7);ctx.fill();
+    ctx.restore();
+  }
+
+  // flow
+  function startGame(){
+    ensureAudio(); introScreen.hidden=true; winScreen.hidden=true;
+    hud.hidden=false; hint.hidden=false; reset(); state="playing";
+    if(demo) demoTimer=0.6;
+  }
+  function showWin(){ state="win"; hud.hidden=true; hint.hidden=true; winScreen.hidden=false; sndWin(); }
+  startBtn.addEventListener("click",startGame);
+  againBtn.addEventListener("click",startGame);
+
+  // typed terminal intro
+  const termBox=document.getElementById("termBox");
+  const lines=[
+    '<span class="c">$</span> ./bijoya-dashami --invoke maa-durga',
+    '<span class="r">⚠</span>  mahishasura.exe spawned <span class="w">10</span> asura threads',
+    '<span class="c">&gt;</span> ego anger greed pride lust',
+    '<span class="c">&gt;</span> envy attachment jealousy cruelty sloth',
+    '<span class="c">$</span> equip <span class="w">trishul-baan</span> · blessed by Maa Durga ✓',
+  ];
+  function typeIntro(){
+    if(reduce){termBox.innerHTML=lines.map(l=>'<div class="ln">'+l+'</div>').join("")+'<div class="ln"><span class="cursor"></span></div>';return;}
+    let li=0;
+    (function next(){ if(li>=lines.length){termBox.innerHTML+='<div class="ln"><span class="cursor"></span></div>';return;}
+      const d=document.createElement("div");d.className="ln";termBox.appendChild(d);d.innerHTML=lines[li];li++;setTimeout(next,500); })();
+  }
+
+  function boot(){
+    resize(); typeIntro(); requestAnimationFrame(frame);
+    if(demo) setTimeout(startGame, 3200);
+  }
+  if(window.claude&&window.claude.hot&&window.claude.hot.ready) window.claude.hot.ready(boot); else boot();
+})();
+</script>
+
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){ navigator.serviceWorker.register('sw.js').catch(function(){}); });
+}
+</script>
+</body>
+</html>
