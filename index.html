@@ -23,105 +23,132 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yatra+One&family=JetBrains+Mono:wght@400;700;800&family=Baloo+Da+2:wght@500;700;800&display=swap">
 <style>
-  /* Layout: full-bleed night sky with Mahishasura above + Maa Durga's bow below; HUD top, hint bottom.
-     Committed dark Durga-Puja theme — pandal night, diya gold, alpana red-white, dev-terminal green. */
+  /* Layout: full-bleed night battlefield. Mahishasura's horde (moving asuras) above, Maa Durga (the player)
+     below wielding a different divine weapon each day. DOM HUD + story/clear cards over the canvas.
+     Committed dark Durga-Puja theme: pandal night, diya gold, alpana red, dev-terminal green. */
   :root{
-    --night:#0d0a1f;
-    --night2:#1a1033;
-    --gold:#f6c445;       /* diya / dhunuchi gold */
-    --marigold:#ff7a1a;   /* genda phool */
-    --red:#e01f3d;        /* sindoor / alpana red */
-    --white:#fff6ea;      /* shonkho white */
-    --term:#39d98a;       /* terminal green */
-    --ink:#f3ecff;
-    --muted:#9a8cc4;
-    --display:"Yatra One", "Baloo Da 2", Georgia, "DejaVu Serif", serif;
-    --bong:"Baloo Da 2", "Yatra One", Georgia, serif;
-    --mono:"JetBrains Mono", ui-monospace, "DejaVu Sans Mono", monospace;
-    color-scheme: dark;
+    --night:#0d0a1f; --night2:#1a1033;
+    --gold:#f6c445; --marigold:#ff7a1a; --red:#e01f3d; --white:#fff6ea;
+    --term:#39d98a; --violet:#b98cff; --ink:#f3ecff; --muted:#9a8cc4;
+    --display:"Yatra One","Baloo Da 2",Georgia,"DejaVu Serif",serif;
+    --fest:"Baloo Da 2","Yatra One",Georgia,serif;
+    --mono:"JetBrains Mono",ui-monospace,"DejaVu Sans Mono",monospace;
+    color-scheme:dark;
   }
   html,body{height:100%}
-  body{
-    margin:0;background:radial-gradient(120% 80% at 50% -8%, #2a1a5e 0%, var(--night) 52%, #060410 100%);
+  body{margin:0;background:radial-gradient(120% 80% at 50% -8%,#2a1a5e 0%,var(--night) 52%,#060410 100%);
     color:var(--ink);font-family:var(--mono);overflow:hidden;
-    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
-  }
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
   #stage{position:fixed;inset:0;touch-action:none}
   canvas{display:block;width:100%;height:100%}
 
-  .hud{
-    position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);
-    display:flex;justify-content:space-between;align-items:flex-start;
-    padding:14px max(16px,env(safe-area-inset-left,0px)) 0 max(16px,env(safe-area-inset-right,0px));
-    pointer-events:none;z-index:5;
-  }
-  .tag{font-weight:800;font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;
-    color:var(--term);display:flex;align-items:center;gap:.5em}
-  .tag b{color:var(--gold)}
-  .heads-left{text-align:right;font-weight:800;font-size:.68rem;letter-spacing:.08em;color:var(--muted)}
-  .heads-left .n{display:block;font-family:var(--display);font-size:1.7rem;line-height:1;color:var(--red)}
+  /* HUD */
+  .hud{position:fixed;left:0;right:0;top:env(safe-area-inset-top,0px);z-index:5;pointer-events:none;
+    display:flex;justify-content:space-between;align-items:flex-start;gap:8px;
+    padding:12px max(14px,env(safe-area-inset-left,0px)) 0 max(14px,env(safe-area-inset-right,0px))}
+  .hud .col{display:flex;flex-direction:column;gap:3px}
+  .hud .col.r{align-items:flex-end;text-align:right}
+  .k{font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .v{font-weight:800;font-size:.82rem;letter-spacing:.02em}
+  .v.gold{color:var(--gold)} .v.term{color:var(--term)} .v.red{color:var(--red)}
+  .score{font-family:var(--display);font-size:1.5rem;line-height:1;color:var(--gold)}
+  .combo{color:var(--marigold);font-weight:800;font-size:.8rem;opacity:0;transition:opacity .2s}
+  .combo.on{opacity:1}
+  .day{color:var(--violet)}
+  .weapon{color:var(--term)}
 
-  .screen{
-    position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;text-align:center;
-    padding:0 max(22px,env(safe-area-inset-left,0px));gap:1.05rem;
-    background:radial-gradient(130% 90% at 50% 22%, rgba(42,26,94,.70), rgba(6,4,16,.94));
-    backdrop-filter:blur(2px);
-  }
-  .eyebrow{font-weight:800;font-size:.72rem;letter-spacing:.24em;text-transform:uppercase;color:var(--term)}
+  .hint{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);z-index:5;
+    text-align:center;color:var(--muted);font-size:.72rem;letter-spacing:.04em;pointer-events:none;padding:0 16px}
+  .hint b{color:var(--gold)}
+
+  /* overlays */
+  .screen{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;gap:1rem;padding:0 max(24px,env(safe-area-inset-left,0px));
+    background:radial-gradient(130% 90% at 50% 20%,rgba(42,26,94,.72),rgba(6,4,16,.95));backdrop-filter:blur(2px)}
+  .eyebrow{font-weight:800;font-size:.68rem;letter-spacing:.22em;text-transform:uppercase;color:var(--term)}
   h1{font-family:var(--display);font-weight:400;margin:0;line-height:.98;text-wrap:balance;
-     font-size:clamp(2.5rem,12.5vw,4.4rem);color:var(--gold);text-shadow:0 0 28px rgba(246,196,69,.35)}
+     font-size:clamp(2.4rem,12vw,4.2rem);color:var(--gold);text-shadow:0 0 26px rgba(246,196,69,.35)}
   h1 .sub{display:block;color:var(--red);font-size:.44em;letter-spacing:.02em}
-  .bong{font-family:var(--bong);font-weight:800;color:var(--marigold);font-size:clamp(1.3rem,6.5vw,2rem);margin:0;line-height:1.1}
-  .term-box{
-    width:min(540px,92vw);background:rgba(10,7,25,.82);border:1px solid rgba(57,217,138,.35);
-    border-radius:12px;padding:16px 18px;text-align:left;font-size:.82rem;line-height:1.7;
-    box-shadow:0 20px 60px rgba(0,0,0,.5);
-  }
-  .term-box .ln{white-space:pre-wrap;color:var(--muted)}
-  .term-box .ln .c{color:var(--term)} .term-box .ln .w{color:var(--gold)} .term-box .ln .r{color:var(--red)}
+  h2{font-family:var(--display);font-weight:400;margin:.1em 0 0;font-size:clamp(2rem,9vw,3rem);color:var(--gold);line-height:1}
+  .tithi{font-family:var(--fest);font-weight:800;color:var(--violet);font-size:1rem;letter-spacing:.02em}
+  .fest{font-family:var(--fest);font-weight:800;color:var(--marigold);font-size:clamp(1.2rem,6vw,1.8rem);margin:0}
+  .weaponline{font-family:var(--mono);font-weight:700;color:var(--term);font-size:.82rem;letter-spacing:.02em}
+  .weaponline b{color:var(--gold)}
+  p.story{margin:0;color:var(--ink);font-size:.95rem;max-width:30ch;line-height:1.6}
+  p.lead{margin:0;color:var(--muted);font-size:.88rem;max-width:32ch;line-height:1.55}
+  .term-box{width:min(540px,92vw);background:rgba(10,7,25,.82);border:1px solid rgba(57,217,138,.35);
+    border-radius:12px;padding:14px 16px;text-align:left;font-size:.8rem;line-height:1.7;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .term-box .ln{white-space:pre-wrap;color:var(--muted)} .term-box .c{color:var(--term)} .term-box .w{color:var(--gold)} .term-box .r{color:var(--red)}
   .cursor{display:inline-block;width:.6ch;height:1.1em;background:var(--term);vertical-align:-.18em;animation:blink 1s steps(1) infinite}
   @keyframes blink{50%{opacity:0}}
-  p.lead{margin:0;color:var(--muted);font-size:.9rem;max-width:34ch;line-height:1.6}
-  .btn{font-family:var(--mono);font-weight:800;font-size:.95rem;letter-spacing:.06em;color:#1a0f00;
-    background:linear-gradient(180deg,var(--gold),var(--marigold));border:none;border-radius:999px;
-    padding:.95em 2.2em;cursor:pointer;pointer-events:auto;box-shadow:0 10px 30px rgba(255,122,26,.4);transition:transform .12s ease}
-  .btn:active{transform:scale(.95)}
-  .btn:focus-visible{outline:3px solid var(--term);outline-offset:3px}
-  .handle{font-weight:700;color:var(--gold);font-size:.9rem;letter-spacing:.04em}
+  .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem .9rem;width:min(360px,86vw);margin:.2rem 0}
+  .stat{background:rgba(20,14,44,.7);border:1px solid rgba(154,140,196,.25);border-radius:10px;padding:.55rem .7rem;text-align:left}
+  .stat .sk{font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .stat .sv{font-family:var(--display);font-size:1.35rem;color:var(--gold);line-height:1.05}
+  .stat .sv.sm{font-size:1.05rem}
+  .btn{font-family:var(--mono);font-weight:800;font-size:.95rem;letter-spacing:.05em;color:#1a0f00;
+    background:linear-gradient(180deg,var(--gold),var(--marigold));border:none;border-radius:999px;padding:.9em 2em;
+    cursor:pointer;pointer-events:auto;box-shadow:0 10px 30px rgba(255,122,26,.4);transition:transform .12s ease}
+  .btn:active{transform:scale(.95)} .btn:focus-visible{outline:3px solid var(--term);outline-offset:3px}
+  .handle{font-weight:700;color:var(--gold);font-size:.88rem;letter-spacing:.03em}
   .handle span{color:var(--muted)}
-  .hint{position:fixed;left:0;right:0;bottom:calc(env(safe-area-inset-bottom,0px) + 14px);
-    text-align:center;color:var(--muted);font-size:.72rem;letter-spacing:.05em;z-index:5;pointer-events:none;padding:0 16px}
-  .hint b{color:var(--gold)}
   [hidden]{display:none!important}
-  @media (prefers-reduced-motion: reduce){.cursor{animation:none}}
+  @media (prefers-reduced-motion:reduce){.cursor{animation:none}}
 </style>
 
 <div id="stage"><canvas id="c"></canvas></div>
 
+<!-- HUD -->
 <div class="hud" id="hud" hidden>
-  <div class="tag">🔱 DURGA<b>DEBUGGER</b></div>
-  <div class="heads-left">asuras online<span class="n" id="count">10</span></div>
+  <div class="col">
+    <span class="k">day</span><span class="v day" id="hDay">Shashthi</span>
+    <span class="k" style="margin-top:4px">weapon</span><span class="v weapon" id="hWeapon">Bow</span>
+  </div>
+  <div class="col" style="align-items:center">
+    <span class="score" id="hScore">0</span>
+    <span class="combo" id="hCombo">×2 combo</span>
+  </div>
+  <div class="col r">
+    <span class="k">asuras</span><span class="v red" id="hLeft">6</span>
+    <span class="k" style="margin-top:4px">accuracy</span><span class="v term" id="hAcc">100%</span>
+  </div>
 </div>
+<div class="hint" id="hint" hidden></div>
 
-<div class="hint" id="hint" hidden>drag to aim · release — <b>Maa Durga strikes</b> 🏹</div>
-
-<!-- INTRO -->
-<section class="screen" id="introScreen">
-  <div class="eyebrow">bijoya dashami · build v10.0</div>
+<!-- TITLE / PROLOGUE -->
+<section class="screen" id="titleScreen">
+  <div class="eyebrow">Mahalaya · Devi Paksha begins</div>
   <h1>Durga<span class="sub">Debugger</span></h1>
   <div class="term-box" id="termBox"></div>
-  <button class="btn" id="startBtn">🔱 TAKE UP THE BOW</button>
+  <button class="btn" id="startBtn">🔱 BEGIN THE BATTLE</button>
   <div class="handle"><span>a durga puja drop by</span> @bimal.os</div>
+</section>
+
+<!-- STORY CARD (per day) -->
+<section class="screen" id="storyScreen" hidden>
+  <div class="eyebrow" id="sTithi">Shashthi · Day 6</div>
+  <h2 id="sName">Bodhon</h2>
+  <p class="story" id="sStory"></p>
+  <div class="weaponline" id="sWeapon"></div>
+  <button class="btn" id="storyBtn">▶ ENTER THE FIELD</button>
+</section>
+
+<!-- DAY CLEAR -->
+<section class="screen" id="clearScreen" hidden>
+  <div class="eyebrow" id="cTithi">Shashthi cleared ✓</div>
+  <h2 id="cName">Bodhon — cleared</h2>
+  <div class="stats" id="cStats"></div>
+  <button class="btn" id="clearBtn">▶ NEXT DAY</button>
 </section>
 
 <!-- WIN -->
 <section class="screen" id="winScreen" hidden>
-  <div class="eyebrow">build passed ✓ · asuras killed 10/10</div>
+  <div class="eyebrow">Vijaya Dashami · Mahishasura slain ✓</div>
   <h1>Happy<span class="sub">Dussehra</span></h1>
-  <p class="bong">&amp; a blessed Durga Puja</p>
-  <p class="lead">Good deployed to production. Evil rolled back.<br>Maa Durga triumphs over Mahishasura.</p>
-  <button class="btn" id="againBtn">↻ REBUILD</button>
+  <p class="fest">&amp; a blessed Durga Puja</p>
+  <div class="stats" id="wStats"></div>
+  <p class="lead">Good deployed to production. Evil rolled back.<br>See you next year.</p>
+  <button class="btn" id="againBtn">↻ PLAY AGAIN</button>
   <div class="handle"><span>from</span> @bimal.os 🙏</div>
 </section>
 
@@ -129,321 +156,460 @@
 (function(){
   "use strict";
   const canvas=document.getElementById("c"), ctx=canvas.getContext("2d");
-  const hud=document.getElementById("hud"), countEl=document.getElementById("count");
-  const hint=document.getElementById("hint");
-  const introScreen=document.getElementById("introScreen"), winScreen=document.getElementById("winScreen");
-  const startBtn=document.getElementById("startBtn"), againBtn=document.getElementById("againBtn");
+  const $=id=>document.getElementById(id);
   const reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const demo=location.hash.replace("#","")==="demo";
+  window.__events=[]; function ev(type){try{window.__events.push({t:performance.now()/1000,type:type});}catch(e){}}
 
+  // ---------- campaign: the real Durga Puja days ----------
+  const DAYS=[
+    {tithi:"Shashthi · Day 6", name:"Bodhon", weapon:"bow", wname:"Dhanush-Baan · the celestial bow",
+     story:"The Goddess's face is unveiled and Durga descends to earth. The first asuras of the mind creep from the dark — strike them down.",
+     vices:["ego","anger","greed","pride","lust","envy"], speed:30, hp:1},
+    {tithi:"Saptami · Day 7", name:"Nabapatrika", weapon:"chakra", wname:"Sudarshan Chakra · Vishnu's discus",
+     story:"At dawn the Nabapatrika is bathed and the Devi's power takes root. Mahishasura's horde charges — the chakra cuts through many at once.",
+     vices:["doubt","sloth","vanity","malice","fear","spite","apathy","deceit"], speed:52, hp:1},
+    {tithi:"Ashtami · Day 8 · Sandhi", name:"Chamunda", weapon:"trishul", wname:"Trishul · the trident of Shiva",
+     story:"The fiercest day. At the Sandhi — the razor juncture of Ashtami and Navami — Chanda and Munda attack, and Durga rises as Chamunda.",
+     vices:["wrath","envy","greed","ego","lust","pride"], speed:66, hp:1, elites:["Chanda","Munda"]},
+    {tithi:"Navami · Day 9", name:"Maha Navami", weapon:"vajra", wname:"Vajra · Indra's thunderbolt",
+     story:"The sky splits with the final onslaught. Lightning leaps from the Devi's hand — one strike arcs from asura to asura.",
+     vices:["anger","greed","ego","pride","lust","envy","sloth","fear","spite","doubt"], speed:80, hp:1},
+    {tithi:"Vijaya Dashami · Day 10", name:"Bijoya", weapon:"trishul", wname:"Trishul · the final blow",
+     story:"Mahishasura rises in his true form, shifting shape to escape every strike. Guide Durga's trishul to his heart.",
+     vices:["ego","anger","greed"], speed:46, hp:1, boss:"Mahishasura"},
+  ];
+  const WEAPONS={bow:"Bow",chakra:"Chakra",trishul:"Trishul",vajra:"Vajra"};
+  const HINTS={bow:"drag to aim · release to loose an <b>arrow</b>",
+    chakra:"drag & release — the <b>chakra</b> pierces every asura in its path",
+    trishul:"drag to aim · the <b>trishul</b> strikes in a three-fold spread",
+    vajra:"aim near a cluster · <b>vajra</b> lightning leaps between asuras"};
+
+  // ---------- state ----------
   let W=0,H=0,DPR=1;
+  let state="title";          // title | story | playing | clear | win
+  let dayIdx=0, day=null, weapon="bow";
+  let enemies=[], shots=[], effects=[], particles=[], floaters=[];
+  let bow={x:0,y:0,r:30,angle:-Math.PI/2}, durga={cx:0,cy:0,S:40};
+  let aim=null, idc=1, shotIdc=1, activeShots={};
+  // scoring
+  let score=0, combo=0, maxCombo=0, shotsFired=0, shotsHit=0, killsTotal=0;
+
   function resize(){
     DPR=Math.min(window.devicePixelRatio||1,2);
     W=canvas.clientWidth; H=canvas.clientHeight;
     canvas.width=Math.round(W*DPR); canvas.height=Math.round(H*DPR);
-    ctx.setTransform(DPR,0,0,DPR,0,0); layout();
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    durga.S=Math.max(40,Math.min(W,H)*0.095);
+    durga.cx=W/2; durga.cy=H-Math.max(130,H*0.18);
+    bow.x=durga.cx; bow.y=durga.cy-durga.S*0.4; bow.r=durga.S*0.72;
   }
   window.addEventListener("resize",resize);
 
-  // audio
+  // ---------- audio ----------
   let AC=null;
-  function ensureAudio(){ if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}} if(AC&&AC.state==="suspended")AC.resume(); }
-  function beep(f,d,t,g){ if(!AC)return; try{const o=AC.createOscillator(),ga=AC.createGain();o.type=t||"triangle";o.frequency.value=f;ga.gain.value=0;o.connect(ga);ga.connect(AC.destination);const n=AC.currentTime;ga.gain.linearRampToValueAtTime(g||.18,n+.01);ga.gain.exponentialRampToValueAtTime(.0001,n+d);o.start(n);o.stop(n+d);}catch(e){} }
-  const sndShoot=()=>beep(540,.12,"square",.1);
-  const sndHit=()=>{beep(180,.18,"sawtooth",.16);beep(90,.3,"sine",.12);};
-  const sndWin=()=>[523,659,784,1047,1319].forEach((f,i)=>setTimeout(()=>beep(f,.55,"triangle",.13),i*130));
+  function ensureAudio(){if(!AC){try{AC=new(window.AudioContext||window.webkitAudioContext)();}catch(e){}}if(AC&&AC.state==="suspended")AC.resume();}
+  function beep(f,d,t,g){if(!AC)return;try{const o=AC.createOscillator(),ga=AC.createGain();o.type=t||"triangle";o.frequency.value=f;ga.gain.value=0;o.connect(ga);ga.connect(AC.destination);const n=AC.currentTime;ga.gain.linearRampToValueAtTime(g||.14,n+.01);ga.gain.exponentialRampToValueAtTime(.0001,n+d);o.start(n);o.stop(n+d);}catch(e){}}
+  const sWeapon={bow:()=>beep(560,.12,"square",.08),chakra:()=>beep(360,.2,"sawtooth",.08),trishul:()=>{beep(500,.12,"square",.07);beep(380,.14,"square",.06);},vajra:()=>beep(1200,.14,"sawtooth",.08)};
+  const sHit=()=>{beep(190,.16,"sawtooth",.13);beep(95,.26,"sine",.1);};
+  const sWin=()=>[523,659,784,1047,1319].forEach((f,i)=>setTimeout(()=>beep(f,.5,"triangle",.11),i*120));
+  const sClear=()=>[523,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.35,"triangle",.1),i*90));
 
-  const VICES=["ego","anger","greed","pride","lust","envy","attachment","jealousy","cruelty","sloth"];
-  let state="intro";
-  let heads=[], arrows=[], particles=[], floaters=[], killed=0;
-  let bow={x:0,y:0,r:30,angle:-Math.PI/2};
-  let durga={cx:0,cy:0,S:40};
-  let aim=null, burnT=0;
-
-  function layout(){
-    durga.S=Math.max(44,Math.min(W,H)*0.1);
-    durga.cx=W/2; durga.cy=H-Math.max(140,H*0.19);
-    bow.x=durga.cx; bow.y=durga.cy-durga.S*0.4; bow.r=durga.S*0.78;
-    placeHeads();
+  // ---------- spawning ----------
+  function rnd(a,b){return a+Math.random()*(b-a);}
+  function spawnDay(i){
+    day=DAYS[i]; weapon=day.weapon;
+    enemies=[]; shots=[]; effects=[]; particles=[]; floaters=[]; activeShots={};
+    const yTop=Math.max(90,H*0.14), yBot=H*0.50, r=Math.max(16,Math.min(W*0.05,30));
+    const push=(vice,big,hp)=>{
+      const rr=big?r*1.5:r, ang=rnd(0,6.28), sp=day.speed*(big?0.6:1)*rnd(0.7,1.1);
+      enemies.push({id:idc++,vice:vice,x:rnd(60,W-60),y:rnd(yTop,yBot),r:rr,
+        vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp*0.6,hp:hp||day.hp,maxhp:hp||day.hp,
+        alive:true,bob:rnd(0,6.28),big:!!big,yTop:yTop,yBot:yBot});
+    };
+    if(day.boss){
+      // final boss: Mahishasura, big, lots of hp, slow + a few adds
+      enemies.push({id:idc++,vice:"Mahishasura",x:W/2,y:yTop+r*2,r:r*2.6,vx:day.speed*0.5,vy:0,
+        hp:16,maxhp:16,alive:true,bob:0,boss:true,yTop:yTop,yBot:yBot*0.9});
+      day.vices.forEach(v=>push(v,false,1));
+    }else{
+      day.vices.forEach(v=>push(v,false,1));
+      (day.elites||[]).forEach(v=>push(v,true,2));
+    }
+    updateHUD();
   }
-  function placeHeads(){
-    const cx=W/2, top=Math.max(96,H*0.17);
-    const r=Math.max(16,Math.min(W*0.052,30));
-    const tiers=[{n:6,y:top,spread:Math.min(W*0.42,260)},{n:4,y:top+r*2.5,spread:Math.min(W*0.26,170)}];
-    const positions=[];
-    tiers.forEach(t=>{ for(let i=0;i<t.n;i++){const f=t.n===1?0:(i/(t.n-1)-.5)*2; positions.push({x:cx+f*t.spread,y:t.y,bob:Math.random()*6.28});} });
-    if(heads.length===0){
-      heads=positions.map((p,i)=>({bx:p.x,by:p.y,x:p.x,y:p.y,r:r,bob:p.bob,vice:VICES[i],alive:true}));
-    }else{ heads.forEach((hd,i)=>{if(positions[i]){hd.bx=positions[i].x;hd.by=positions[i].y;hd.r=r;}}); }
-  }
-  function reset(){ heads=[];arrows=[];particles=[];floaters=[];killed=0;burnT=0; placeHeads(); countEl.textContent="10"; }
 
-  // input
-  function toLocal(e){const rect=canvas.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return {x:t.clientX-rect.left,y:t.clientY-rect.top};}
-  function onDown(e){ if(state!=="playing")return; e.preventDefault(); ensureAudio(); aim=toLocal(e); updateAngle(); }
-  function onMove(e){ if(state!=="playing"||!aim)return; e.preventDefault(); aim=toLocal(e); updateAngle(); }
-  function onUp(e){ if(state!=="playing"||!aim)return; e.preventDefault(); fire(bow.angle); aim=null; }
-  function updateAngle(){ if(!aim)return; bow.angle=Math.atan2(aim.y-bow.y,aim.x-bow.x); }
+  // ---------- input ----------
+  function toLocal(e){const rc=canvas.getBoundingClientRect();const t=e.touches?e.touches[0]:e;return{x:t.clientX-rc.left,y:t.clientY-rc.top};}
+  function onDown(e){if(state!=="playing")return;e.preventDefault();ensureAudio();aim=toLocal(e);setAngle();}
+  function onMove(e){if(state!=="playing"||!aim)return;e.preventDefault();aim=toLocal(e);setAngle();}
+  function onUp(e){if(state!=="playing"||!aim)return;e.preventDefault();fireWeapon(bow.angle,aim);aim=null;}
+  function setAngle(){if(aim)bow.angle=Math.atan2(aim.y-bow.y,aim.x-bow.x);}
   canvas.addEventListener("pointerdown",onDown);
   canvas.addEventListener("pointermove",onMove);
   window.addEventListener("pointerup",onUp);
 
-  function fire(angle){
-    const sp=Math.max(W,H)*1.15;
-    arrows.push({x:bow.x,y:bow.y,vx:Math.cos(angle)*sp,vy:Math.sin(angle)*sp,ang:angle,life:0});
-    sndShoot();
+  // ---------- firing ----------
+  function newShot(nProj){const id=shotIdc++;activeShots[id]={left:nProj,killed:false};return id;}
+  function spawnProj(ang,type,pierce,shotId){
+    const sp=Math.max(W,H)*(type==="chakra"?0.9:1.15);
+    shots.push({x:bow.x,y:bow.y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,ang:ang,type:type,
+      pierce:!!pierce,shot:shotId,spin:0,life:0,hitIds:{}});
   }
-  function burst(x,y,color){
-    const n=reduce?10:26;
-    for(let i=0;i<n;i++){const a=Math.random()*6.28,s=60+Math.random()*260;
-      particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-40,life:0,max:.7+Math.random()*.6,col:color,size:2+Math.random()*3});}
+  function fireWeapon(ang,pt){
+    shotsFired++; ev("shot"); sWeapon[weapon]&&sWeapon[weapon]();
+    if(weapon==="bow"){ const s=newShot(1); spawnProj(ang,"arrow",false,s); }
+    else if(weapon==="chakra"){ const s=newShot(1); spawnProj(ang,"chakra",true,s); }
+    else if(weapon==="trishul"){ const s=newShot(3); [-0.14,0,0.14].forEach(d=>spawnProj(ang+d,"arrow",false,s)); }
+    else if(weapon==="vajra"){ vajraStrike(ang,pt); }
+    updateHUD();
   }
-  function floatText(x,y,txt){ floaters.push({x,y,txt,life:0,max:1.1}); }
-  function killHead(hd){
-    if(!hd.alive)return;
-    hd.alive=false;killed++; countEl.textContent=String(10-killed);
-    burst(hd.x,hd.y,"#ff7a1a");burst(hd.x,hd.y,"#f6c445");
-    floatText(hd.x,hd.y-hd.r-6,"✓ "+hd.vice); sndHit();
-    if(killed>=10) beginBurn();
+  function vajraStrike(ang,pt){
+    const s=newShot(0);
+    // primary target: nearest alive enemy to the aim ray
+    let origin={x:bow.x,y:bow.y};
+    let chain=[]; const used={};
+    let from=origin;
+    for(let hop=0;hop<4;hop++){
+      let best=null,bd=1e9;
+      enemies.forEach(en=>{if(!en.alive||used[en.id])return;
+        // prefer those roughly along aim for first hop, else nearest
+        const dx=en.x-from.x,dy=en.y-from.y,dd=dx*dx+dy*dy;
+        let score=dd;
+        if(hop===0){const a=Math.atan2(dy,dx);let da=Math.abs(((a-ang+Math.PI*3)%(Math.PI*2))-Math.PI);score=dd*(1+da*2.2);}
+        if(score<bd){bd=score;best=en;}
+      });
+      if(!best) break;
+      if(hop>0 && Math.hypot(best.x-from.x,best.y-from.y)>H*0.34) break; // chain range
+      chain.push({x:best.x,y:best.y}); used[best.id]=true;
+      effects.push({type:"bolt",x1:from.x,y1:from.y,x2:best.x,y2:best.y,life:0,max:0.28});
+      damage(best,1,s); from=best;
+    }
+    if(chain.length===0){ // missed -> faint bolt into the sky
+      effects.push({type:"bolt",x1:origin.x,y1:origin.y,x2:origin.x+Math.cos(ang)*H,y2:origin.y+Math.sin(ang)*H,life:0,max:0.2});
+      registerMiss(s);
+    } else resolveShot(s);
   }
-  function beginBurn(){ state="burning"; burnT=0; hint.hidden=true; }
 
-  // demo autoplay
-  let demoTimer=0;
-  function demoStep(dt){
-    demoTimer-=dt; if(demoTimer>0)return;
-    const target=heads.find(h=>h.alive); if(!target)return;
-    bow.angle=Math.atan2(target.y-bow.y,target.x-bow.x);
-    fire(bow.angle); demoTimer=0.5;
+  // ---------- damage / scoring ----------
+  function damage(en,dmg,shotId){
+    if(!en.alive)return;
+    en.hp-=dmg;
+    burst(en.x,en.y,"#ff7a1a",en.boss?18:10); burst(en.x,en.y,"#f6c445",en.boss?14:8);
+    if(en.hp<=0){
+      en.alive=false; killsTotal++; ev("kill");
+      burst(en.x,en.y,"#e01f3d",en.boss?60:18);
+      floatText(en.x,en.y-en.r-6,(en.boss?"✓ "+en.vice:"✓ "+en.vice));
+      sHit();
+      const sh=activeShots[shotId];
+      if(sh && !sh.killed){ sh.killed=true; combo++; shotsHit++; maxCombo=Math.max(maxCombo,combo); }
+      score+=10*Math.min(combo||1,10)*(en.boss?5:1)*(en.big?2:1);
+    }else{ sHit(); }
+    updateHUD();
+  }
+  function resolveShot(id){const sh=activeShots[id];if(!sh)return;if(sh.left<=0){if(!sh.killed){/*already*/}delete activeShots[id];}}
+  function registerMiss(id){ combo=0; delete activeShots[id]; updateHUD(); }
+
+  function burst(x,y,c,n){n=reduce?Math.ceil(n/2):n;for(let i=0;i<n;i++){const a=Math.random()*6.28,s=60+Math.random()*260;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-40,life:0,max:.6+Math.random()*.6,col:c,size:2+Math.random()*3});}}
+  function floatText(x,y,t){floaters.push({x,y,txt:t,life:0,max:1.0});}
+
+  function updateHUD(){
+    $("hScore").textContent=score;
+    $("hLeft").textContent=enemies.filter(e=>e.alive).length;
+    $("hDay").textContent=day?day.name:"";
+    $("hWeapon").textContent=day?WEAPONS[day.weapon]:"";
+    const acc=shotsFired?Math.round(shotsHit/shotsFired*100):100;
+    $("hAcc").textContent=acc+"%";
+    const cEl=$("hCombo");
+    if(combo>=2){cEl.textContent="×"+Math.min(combo,10)+" combo";cEl.classList.add("on");}
+    else cEl.classList.remove("on");
   }
 
-  // loop
+  // ---------- main loop ----------
   let last=0;
-  function frame(ts){ const dt=Math.min(0.05,(ts-last)/1000||0); last=ts; update(dt); draw(); requestAnimationFrame(frame); }
+  function frame(ts){const dt=Math.min(0.05,(ts-last)/1000||0);last=ts;update(dt);draw();requestAnimationFrame(frame);}
 
   function update(dt){
     const t=performance.now()/1000;
-    heads.forEach(hd=>{ hd.x=hd.bx+Math.sin(t*1.3+hd.bob)*hd.r*0.5; hd.y=hd.by+Math.cos(t*1.1+hd.bob)*hd.r*0.22; });
+    // enemies move + bounce
+    enemies.forEach(en=>{if(!en.alive)return;
+      en.x+=en.vx*dt; en.y+=en.vy*dt;
+      if(en.x<en.r+20){en.x=en.r+20;en.vx=Math.abs(en.vx);}
+      if(en.x>W-en.r-20){en.x=W-en.r-20;en.vx=-Math.abs(en.vx);}
+      if(en.y<en.yTop){en.y=en.yTop;en.vy=Math.abs(en.vy);}
+      if(en.y>en.yBot){en.y=en.yBot;en.vy=-Math.abs(en.vy);}
+      en.dx=Math.sin(t*1.2+en.bob)*en.r*0.18; // wobble offset for drawing eyes
+    });
     if(state==="playing"&&demo) demoStep(dt);
-    for(let i=arrows.length-1;i>=0;i--){
-      const a=arrows[i]; a.x+=a.vx*dt; a.y+=a.vy*dt; a.life+=dt; let hit=false;
-      for(const hd of heads){ if(!hd.alive)continue; const dx=a.x-hd.x,dy=a.y-hd.y; if(dx*dx+dy*dy<(hd.r+6)*(hd.r+6)){killHead(hd);hit=true;break;} }
-      if(hit||a.x<-40||a.x>W+40||a.y<-60||a.y>H+40||a.life>3) arrows.splice(i,1);
+    // projectiles
+    for(let i=shots.length-1;i>=0;i--){
+      const p=shots[i]; p.x+=p.vx*dt; p.y+=p.vy*dt; p.life+=dt; p.spin+=dt*16;
+      let consumed=false;
+      for(const en of enemies){ if(!en.alive)continue; if(p.hitIds[en.id])continue;
+        const dx=p.x-en.x,dy=p.y-en.y, rad=en.r+(p.type==="chakra"?16:7);
+        if(dx*dx+dy*dy<rad*rad){
+          p.hitIds[en.id]=1; damage(en,1,p.shot);
+          if(!p.pierce){consumed=true;break;}
+        }
+      }
+      const off=p.x<-50||p.x>W+50||p.y<-70||p.y>H+50||p.life>3.2;
+      if(consumed||off){
+        const sh=activeShots[p.shot];
+        if(sh){ sh.left--; if(sh.left<=0){ if(!sh.killed) registerMiss(p.shot); else delete activeShots[p.shot]; } }
+        shots.splice(i,1);
+      }
     }
+    for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life+=dt;if(e.life>=e.max)effects.splice(i,1);}
     for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.life+=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=520*dt;p.vx*=0.98;if(p.life>=p.max)particles.splice(i,1);}
     for(let i=floaters.length-1;i>=0;i--){const f=floaters[i];f.life+=dt;f.y-=28*dt;if(f.life>=f.max)floaters.splice(i,1);}
-    if(state==="burning"){ burnT+=dt;
-      if(burnT<2.4&&Math.random()<0.6) burst(W/2+(Math.random()-.5)*W*0.5,H*0.32+(Math.random()-.5)*H*0.2,Math.random()<.5?"#ff7a1a":"#e01f3d");
-      if(burnT>=2.6) showWin();
-    }
-    if(state==="win"){ if(Math.random()<0.5){const x=Math.random()*W,y=Math.random()*H*0.55;
-      burst(x,y,["#f6c445","#ff7a1a","#e01f3d","#39d98a","#ff5fa2","#fff6ea"][Math.floor(Math.random()*6)]);} }
+    // day cleared?
+    if(state==="playing" && enemies.length && enemies.every(e=>!e.alive)) endDay();
   }
 
   // ---------- drawing ----------
   function draw(){
     ctx.clearRect(0,0,W,H); drawStars();
     if(state==="win"){ drawDurga(); drawParticles(); return; }
-    const effA = state==="burning" ? Math.max(0,1-burnT/2.2) : 1;
-    drawMahishasura(effA);
-    if(state==="playing"&&aim){
-      ctx.save();ctx.setLineDash([4,10]);ctx.lineWidth=2;ctx.strokeStyle="rgba(57,217,138,.6)";
-      ctx.beginPath();ctx.moveTo(bow.x,bow.y);
-      ctx.lineTo(bow.x+Math.cos(bow.angle)*Math.max(W,H),bow.y+Math.sin(bow.angle)*Math.max(W,H));
-      ctx.stroke();ctx.restore();
-    }
-    if(state==="playing"||state==="burning") drawDurgaWarrior();
-    drawArrows(); drawParticles(); drawFloaters();
+    // faint horde backdrop
+    drawEnemies();
+    if(state==="playing"&&aim){ ctx.save();ctx.setLineDash([4,10]);ctx.lineWidth=2;ctx.strokeStyle="rgba(57,217,138,.55)";
+      ctx.beginPath();ctx.moveTo(bow.x,bow.y);ctx.lineTo(bow.x+Math.cos(bow.angle)*Math.max(W,H),bow.y+Math.sin(bow.angle)*Math.max(W,H));ctx.stroke();ctx.restore(); }
+    drawEffects(); drawProjectiles();
+    if(state==="playing"||state==="clear") drawWarrior();
+    drawParticles(); drawFloaters();
   }
-
   let stars=null;
-  function drawStars(){
-    if(!stars){stars=[];for(let i=0;i<64;i++)stars.push({x:Math.random(),y:Math.random()*0.7,r:Math.random()*1.4+.3,p:Math.random()*6});}
-    const t=performance.now()/1000; ctx.save();
-    stars.forEach(s=>{ctx.globalAlpha=0.3+0.5*Math.abs(Math.sin(t*0.8+s.p));ctx.fillStyle="#fff3c4";ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,7);ctx.fill();});
-    ctx.restore();
-  }
+  function drawStars(){if(!stars){stars=[];for(let i=0;i<64;i++)stars.push({x:Math.random(),y:Math.random()*0.7,r:Math.random()*1.4+.3,p:Math.random()*6});}
+    const t=performance.now()/1000;ctx.save();stars.forEach(s=>{ctx.globalAlpha=0.3+0.5*Math.abs(Math.sin(t*0.8+s.p));ctx.fillStyle="#fff3c4";ctx.beginPath();ctx.arc(s.x*W,s.y*H,s.r,0,7);ctx.fill();});ctx.restore();}
 
-  function drawMahishasura(alpha){
-    ctx.save(); ctx.globalAlpha=alpha;
-    const cx=W/2, bodyTop=Math.max(96,H*0.17)+(heads.length?heads[0].r:20);
-    const bw=Math.min(W*0.72,440), bh=H*0.40;
-    // two big buffalo horns rising behind the heads
-    ctx.strokeStyle="#5b3a1a";ctx.lineWidth=Math.max(7,bw*0.03);ctx.lineCap="round";
-    const hy=Math.max(96,H*0.17)-6, hr=bw*0.22;
-    ctx.beginPath();ctx.moveTo(cx-bw*0.16,hy);ctx.quadraticCurveTo(cx-hr,hy-hr*0.9,cx-hr*1.15,hy-hr*0.1);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(cx+bw*0.16,hy);ctx.quadraticCurveTo(cx+hr,hy-hr*0.9,cx+hr*1.15,hy-hr*0.1);ctx.stroke();
-    // body
-    const g=ctx.createLinearGradient(0,bodyTop,0,bodyTop+bh);
-    g.addColorStop(0,"#43204d");g.addColorStop(1,"#1a1033");
-    ctx.fillStyle=g;
-    ctx.beginPath();ctx.moveTo(cx-bw/2,bodyTop+bh);
-    ctx.quadraticCurveTo(cx-bw*0.55,bodyTop+bh*0.3,cx-bw*0.3,bodyTop+10);
-    ctx.lineTo(cx+bw*0.3,bodyTop+10);
-    ctx.quadraticCurveTo(cx+bw*0.55,bodyTop+bh*0.3,cx+bw/2,bodyTop+bh);
-    ctx.closePath();ctx.fill();
-    ctx.restore();
-    heads.forEach(hd=>drawHead(hd,alpha));
-  }
-  function drawHead(hd,alpha){
-    ctx.save(); const alive=hd.alive; ctx.globalAlpha=alpha*(alive?1:0.12); const r=hd.r;
-    ctx.fillStyle=alive?"#3a2963":"#241a3f"; ctx.strokeStyle=alive?"#f6c445":"#4b3a7a"; ctx.lineWidth=2;
-    ctx.beginPath();ctx.arc(hd.x,hd.y,r,0,7);ctx.fill();ctx.stroke();
-    // small horns per asura
-    ctx.strokeStyle=alive?"#8a5a2a":"#3a2d55";ctx.lineWidth=2.4;ctx.lineCap="round";
-    ctx.beginPath();ctx.moveTo(hd.x-r*0.55,hd.y-r*0.7);ctx.quadraticCurveTo(hd.x-r*0.85,hd.y-r*1.1,hd.x-r*0.6,hd.y-r*1.25);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(hd.x+r*0.55,hd.y-r*0.7);ctx.quadraticCurveTo(hd.x+r*0.85,hd.y-r*1.1,hd.x+r*0.6,hd.y-r*1.25);ctx.stroke();
-    if(alive){
-      ctx.fillStyle="#e01f3d";
-      ctx.beginPath();ctx.arc(hd.x-r*0.32,hd.y-r*0.05,r*0.12,0,7);ctx.fill();
-      ctx.beginPath();ctx.arc(hd.x+r*0.32,hd.y-r*0.05,r*0.12,0,7);ctx.fill();
-      ctx.strokeStyle="#f6c445";ctx.lineWidth=2.4;
-      ctx.beginPath();ctx.moveTo(hd.x-r*0.4,hd.y+r*0.42);ctx.quadraticCurveTo(hd.x,hd.y+r*0.18,hd.x+r*0.4,hd.y+r*0.42);ctx.stroke();
-    }
-    ctx.globalAlpha=alpha*(alive?0.95:0.2); ctx.fillStyle=alive?"#9a8cc4":"#5b4a8a";
-    ctx.font="700 "+Math.max(8,r*0.4)+"px JetBrains Mono, DejaVu Sans Mono, monospace"; ctx.textAlign="center";
-    ctx.fillText(hd.vice,hd.x,hd.y+r+Math.max(10,r*0.6));
-    ctx.restore();
-  }
-
-  // Maa Durga as the player — a radiant ten-armed warrior at the foot of the battle,
-  // drawing a celestial bow that aims and strikes the asuras above.
-  function drawDurgaWarrior(){
-    const t=performance.now()/1000;
-    const cx=durga.cx, cy=durga.cy, S=durga.S;
+  function drawEnemies(){ enemies.forEach(en=>{ if(en.boss) drawBoss(en); else drawAsura(en); }); }
+  function drawAsura(en){
+    if(!en.alive)return; const r=en.r, x=en.x,y=en.y;
     ctx.save();
-    // aura
+    ctx.fillStyle=en.big?"#4a2a63":"#3a2963"; ctx.strokeStyle=en.big?"#ff7a1a":"#f6c445"; ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();ctx.stroke();
+    // horns
+    ctx.strokeStyle=en.big?"#b06a2a":"#8a5a2a";ctx.lineWidth=2.4;ctx.lineCap="round";
+    ctx.beginPath();ctx.moveTo(x-r*0.55,y-r*0.7);ctx.quadraticCurveTo(x-r*0.85,y-r*1.1,x-r*0.6,y-r*1.25);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x+r*0.55,y-r*0.7);ctx.quadraticCurveTo(x+r*0.85,y-r*1.1,x+r*0.6,y-r*1.25);ctx.stroke();
+    ctx.fillStyle="#e01f3d";
+    ctx.beginPath();ctx.arc(x-r*0.32+en.dx,y-r*0.05,r*0.12,0,7);ctx.fill();
+    ctx.beginPath();ctx.arc(x+r*0.32+en.dx,y-r*0.05,r*0.12,0,7);ctx.fill();
+    ctx.strokeStyle="#f6c445";ctx.lineWidth=2.2;
+    ctx.beginPath();ctx.moveTo(x-r*0.4,y+r*0.42);ctx.quadraticCurveTo(x,y+r*0.18,x+r*0.4,y+r*0.42);ctx.stroke();
+    if(en.maxhp>1){ // elite hp pips
+      for(let k=0;k<en.maxhp;k++){ctx.fillStyle=k<en.hp?"#ff7a1a":"#3a2d55";ctx.beginPath();ctx.arc(x-(en.maxhp-1)*4+k*8,y-r-8,2.6,0,7);ctx.fill();}
+    }
+    ctx.globalAlpha=0.9;ctx.fillStyle="#9a8cc4";ctx.font="700 "+Math.max(8,r*0.4)+"px JetBrains Mono, DejaVu Sans Mono, monospace";ctx.textAlign="center";
+    ctx.fillText(en.vice,x,y+r+Math.max(10,r*0.6));
+    ctx.restore();
+  }
+  function drawBoss(en){
+    if(!en.alive)return; const r=en.r,x=en.x,y=en.y;
+    ctx.save();
+    // big buffalo horns
+    ctx.strokeStyle="#5b3a1a";ctx.lineWidth=r*0.14;ctx.lineCap="round";
+    ctx.beginPath();ctx.moveTo(x-r*0.5,y-r*0.6);ctx.quadraticCurveTo(x-r*1.15,y-r*1.2,x-r*1.25,y-r*0.3);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(x+r*0.5,y-r*0.6);ctx.quadraticCurveTo(x+r*1.15,y-r*1.2,x+r*1.25,y-r*0.3);ctx.stroke();
+    const g=ctx.createLinearGradient(x,y-r,x,y+r);g.addColorStop(0,"#5a2748");g.addColorStop(1,"#2a143a");
+    ctx.fillStyle=g;ctx.strokeStyle="#e01f3d";ctx.lineWidth=3;
+    ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();ctx.stroke();
+    ctx.fillStyle="#ffd23a";
+    ctx.beginPath();ctx.arc(x-r*0.34,y-r*0.08,r*0.14,0,7);ctx.fill();
+    ctx.beginPath();ctx.arc(x+r*0.34,y-r*0.08,r*0.14,0,7);ctx.fill();
+    ctx.fillStyle="#1a0a1a";ctx.beginPath();ctx.arc(x-r*0.34,y-r*0.08,r*0.06,0,7);ctx.fill();ctx.beginPath();ctx.arc(x+r*0.34,y-r*0.08,r*0.06,0,7);ctx.fill();
+    ctx.strokeStyle="#ffd23a";ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(x-r*0.45,y+r*0.5);ctx.quadraticCurveTo(x,y+r*0.2,x+r*0.45,y+r*0.5);ctx.stroke();
+    // HP bar
+    const bw=r*2, bx=x-r, by=y-r-18;
+    ctx.fillStyle="rgba(0,0,0,.5)";ctx.fillRect(bx,by,bw,7);
+    ctx.fillStyle="#e01f3d";ctx.fillRect(bx,by,bw*Math.max(0,en.hp/en.maxhp),7);
+    ctx.globalAlpha=0.95;ctx.fillStyle="#ffb0b0";ctx.font="800 13px JetBrains Mono, DejaVu Sans Mono, monospace";ctx.textAlign="center";
+    ctx.fillText("MAHISHASURA",x,y+r+20);
+    ctx.restore();
+  }
+
+  function drawProjectiles(){
+    shots.forEach(p=>{
+      ctx.save();ctx.translate(p.x,p.y);
+      if(p.type==="chakra"){
+        ctx.rotate(p.spin); const R=16;
+        ctx.strokeStyle="#f6c445";ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,R,0,7);ctx.stroke();
+        ctx.fillStyle="#ffd98a";for(let k=0;k<8;k++){const a=k/8*6.28;ctx.beginPath();ctx.moveTo(Math.cos(a)*R,Math.sin(a)*R);ctx.lineTo(Math.cos(a)*(R+7),Math.sin(a)*(R+7));ctx.lineTo(Math.cos(a+0.3)*R,Math.sin(a+0.3)*R);ctx.closePath();ctx.fill();}
+        ctx.fillStyle="#fff6ea";ctx.beginPath();ctx.arc(0,0,4,0,7);ctx.fill();
+      }else{ // arrow / trishul prong
+        ctx.rotate(p.ang); const L=Math.max(22,bow.r*1.2);
+        ctx.shadowColor="rgba(57,217,138,.6)";ctx.shadowBlur=8;ctx.strokeStyle="#39d98a";ctx.lineWidth=3;ctx.lineCap="round";
+        ctx.beginPath();ctx.moveTo(-L,0);ctx.lineTo(L*0.45,0);ctx.stroke();ctx.shadowBlur=0;
+        ctx.save();ctx.translate(L*0.45,0);ctx.rotate(-Math.PI/2);trishulTip(0,0,bow.r*0.4,"#f6c445");ctx.restore();
+        ctx.strokeStyle="#e01f3d";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-L,0);ctx.lineTo(-L+8,-5);ctx.moveTo(-L,0);ctx.lineTo(-L+8,5);ctx.stroke();
+      }
+      ctx.restore();
+    });
+  }
+  function drawEffects(){
+    effects.forEach(e=>{ if(e.type==="bolt"){
+      const a=1-e.life/e.max; ctx.save();ctx.globalAlpha=Math.max(0,a);
+      ctx.strokeStyle="#bfe9ff";ctx.lineWidth=3;ctx.shadowColor="#8ad3ff";ctx.shadowBlur=12;
+      ctx.beginPath();const seg=8;for(let k=0;k<=seg;k++){const u=k/seg;const x=e.x1+(e.x2-e.x1)*u+(k%2?1:-1)*rnd(0,10)*(k>0&&k<seg?1:0);const y=e.y1+(e.y2-e.y1)*u+(k%2?-1:1)*rnd(0,10)*(k>0&&k<seg?1:0);k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();
+      ctx.restore();
+    }});
+  }
+  function trishulTip(x,y,s,col){ctx.save();ctx.translate(x,y);ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=Math.max(2,s*0.18);ctx.lineCap="round";
+    ctx.beginPath();ctx.moveTo(0,s*0.5);ctx.lineTo(0,-s);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(-s*0.42,s*0.1);ctx.lineTo(-s*0.42,-s*0.65);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(s*0.42,s*0.1);ctx.lineTo(s*0.42,-s*0.65);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(-s*0.42,s*0.1);ctx.quadraticCurveTo(0,s*0.35,s*0.42,s*0.1);ctx.stroke();
+    [[-0.42,-0.65],[0,-1],[0.42,-0.65]].forEach(p=>{ctx.beginPath();ctx.moveTo(p[0]*s,p[1]*s);ctx.lineTo(p[0]*s-s*0.1,p[1]*s+s*0.18);ctx.lineTo(p[0]*s+s*0.1,p[1]*s+s*0.18);ctx.closePath();ctx.fill();});
+    ctx.restore();}
+
+  function drawWarrior(){
+    const t=performance.now()/1000, cx=durga.cx, cy=durga.cy, S=durga.S;
+    ctx.save();
     const grd=ctx.createRadialGradient(cx,cy-S*0.3,S*0.2,cx,cy-S*0.3,S*3.2);
     grd.addColorStop(0,"rgba(246,196,69,.30)");grd.addColorStop(.5,"rgba(255,122,26,.08)");grd.addColorStop(1,"rgba(255,122,26,0)");
     ctx.fillStyle=grd;ctx.beginPath();ctx.arc(cx,cy-S*0.3,S*3.2,0,7);ctx.fill();
-    // ten arms fanned out (shakti), with weapon-points
     ctx.strokeStyle="#f6c445";ctx.lineWidth=Math.max(2.5,S*0.09);ctx.lineCap="round";
-    for(let i=0;i<10;i++){ const a=-Math.PI/2+(i-4.5)*0.30; const len=S*(1.05+0.08*Math.sin(t*2+i));
+    for(let i=0;i<10;i++){const a=-Math.PI/2+(i-4.5)*0.30,len=S*(1.05+0.08*Math.sin(t*2+i));
       ctx.beginPath();ctx.moveTo(cx,cy-S*0.4);ctx.lineTo(cx+Math.cos(a)*len,cy-S*0.4+Math.sin(a)*len);ctx.stroke();
-      ctx.fillStyle="#fff6ea";ctx.beginPath();ctx.arc(cx+Math.cos(a)*len,cy-S*0.4+Math.sin(a)*len,S*0.05,0,7);ctx.fill();
-    }
-    // body (saree)
+      ctx.fillStyle="#fff6ea";ctx.beginPath();ctx.arc(cx+Math.cos(a)*len,cy-S*0.4+Math.sin(a)*len,S*0.05,0,7);ctx.fill();}
     const bg=ctx.createLinearGradient(cx,cy-S*0.5,cx,cy+S*1.35);bg.addColorStop(0,"#ffd98a");bg.addColorStop(1,"#e01f3d");
     ctx.fillStyle=bg;ctx.beginPath();ctx.moveTo(cx,cy-S*0.5);ctx.lineTo(cx-S*0.58,cy+S*1.35);ctx.quadraticCurveTo(cx,cy+S*1.5,cx+S*0.58,cy+S*1.35);ctx.closePath();ctx.fill();
-    // head + halo + bindi
     ctx.fillStyle="#2a1a4a";ctx.beginPath();ctx.arc(cx,cy-S*0.78,S*0.28,0,7);ctx.fill();
     ctx.strokeStyle="#f6c445";ctx.lineWidth=Math.max(2,S*0.05);ctx.beginPath();ctx.arc(cx,cy-S*0.78,S*0.44,0,7);ctx.stroke();
     ctx.fillStyle="#e01f3d";ctx.beginPath();ctx.arc(cx,cy-S*0.84,S*0.045,0,7);ctx.fill();
     ctx.restore();
-    // the celestial bow in her raised hands, aiming toward the asuras
+    // weapon in hand, aimed
     const r=bow.r;
-    ctx.save(); ctx.translate(bow.x,bow.y); ctx.rotate(bow.angle+Math.PI/2);
-    ctx.strokeStyle="#f6c445";ctx.lineWidth=Math.max(3,r*0.16);ctx.lineCap="round";
-    const a1=Math.PI*0.62,a2=a1+Math.PI*1.76;
-    ctx.beginPath();ctx.arc(0,0,r,a1,a2,false);ctx.stroke();
-    ctx.strokeStyle="rgba(255,246,234,.85)";ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.moveTo(Math.cos(a1)*r,Math.sin(a1)*r);ctx.lineTo(Math.cos(a2)*r,Math.sin(a2)*r);ctx.stroke();
-    ctx.strokeStyle="#39d98a";ctx.lineWidth=Math.max(2,r*0.12);
-    ctx.beginPath();ctx.moveTo(0,r*0.2);ctx.lineTo(0,-r*1.1);ctx.stroke();
-    drawTrishulTip(0,-r*1.15,r*0.5,"#39d98a");
-    ctx.restore();
-  }
-  function drawTrishulTip(x,y,s,col){
-    // three-pronged trishul head pointing up (in local rotated space)
-    ctx.save();ctx.translate(x,y);ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=Math.max(2,s*0.18);ctx.lineCap="round";
-    ctx.beginPath();ctx.moveTo(0,s*0.5);ctx.lineTo(0,-s);ctx.stroke();                 // center prong
-    ctx.beginPath();ctx.moveTo(-s*0.42,s*0.1);ctx.lineTo(-s*0.42,-s*0.65);ctx.stroke(); // left
-    ctx.beginPath();ctx.moveTo(s*0.42,s*0.1);ctx.lineTo(s*0.42,-s*0.65);ctx.stroke();   // right
-    ctx.beginPath();ctx.moveTo(-s*0.42,s*0.1);ctx.quadraticCurveTo(0,s*0.35,s*0.42,s*0.1);ctx.stroke(); // base curve
-    // prong tips
-    [[-0.42,-0.65],[0,-1],[0.42,-0.65]].forEach(p=>{ctx.beginPath();ctx.moveTo(p[0]*s,p[1]*s);ctx.lineTo(p[0]*s-s*0.1,p[1]*s+s*0.18);ctx.lineTo(p[0]*s+s*0.1,p[1]*s+s*0.18);ctx.closePath();ctx.fill();});
-    ctx.restore();
-  }
-
-  function drawArrows(){
-    arrows.forEach(a=>{
-      ctx.save(); ctx.translate(a.x,a.y); ctx.rotate(a.ang);
-      const L=Math.max(24,bow.r*1.3);
-      ctx.shadowColor="rgba(57,217,138,.6)";ctx.shadowBlur=8;
-      ctx.strokeStyle="#39d98a";ctx.lineWidth=3;ctx.lineCap="round";
-      ctx.beginPath();ctx.moveTo(-L,0);ctx.lineTo(L*0.45,0);ctx.stroke();
-      ctx.shadowBlur=0;
-      // trishul head (local: +x is forward -> draw rotated 90° so prongs face forward)
-      ctx.save();ctx.translate(L*0.45,0);ctx.rotate(-Math.PI/2);drawTrishulTip(0,0,bow.r*0.42,"#f6c445");ctx.restore();
-      ctx.strokeStyle="#e01f3d";ctx.lineWidth=2;
-      ctx.beginPath();ctx.moveTo(-L,0);ctx.lineTo(-L+8,-5);ctx.moveTo(-L,0);ctx.lineTo(-L+8,5);ctx.stroke();
-      ctx.restore();
-    });
-  }
-  function drawParticles(){
-    particles.forEach(p=>{const a=1-p.life/p.max;ctx.globalAlpha=Math.max(0,a);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,7);ctx.fill();});
-    ctx.globalAlpha=1;
-  }
-  function drawFloaters(){
-    ctx.save();ctx.textAlign="center";
-    floaters.forEach(f=>{const a=1-f.life/f.max;ctx.globalAlpha=Math.max(0,a);ctx.fillStyle="#39d98a";
-      ctx.font="800 14px JetBrains Mono, DejaVu Sans Mono, monospace";ctx.fillText(f.txt,f.x,f.y);});
-    ctx.restore();ctx.globalAlpha=1;
-  }
-
-  // Maa Durga — reverent luminous ten-armed silhouette with trishul, shown on victory
-  function drawDurga(){
-    const t=performance.now()/1000;
-    const cx=W/2, cy=H*0.34, S=Math.min(W,H)*0.16;
-    ctx.save();
-    // mandorla glow
-    const grd=ctx.createRadialGradient(cx,cy,S*0.2,cx,cy,S*3);
-    grd.addColorStop(0,"rgba(246,196,69,.45)");grd.addColorStop(.5,"rgba(255,122,26,.12)");grd.addColorStop(1,"rgba(255,122,26,0)");
-    ctx.fillStyle=grd;ctx.fillRect(0,0,W,H*0.75);
-    // alpana / chalchitra ring
-    ctx.strokeStyle="rgba(255,246,234,.5)";ctx.lineWidth=2;
-    for(let k=0;k<2;k++){ctx.beginPath();ctx.arc(cx,cy,S*(2.1+k*0.22),0,7);ctx.stroke();}
-    ctx.strokeStyle="rgba(224,31,61,.55)";
-    for(let i=0;i<24;i++){const a=i/24*6.28;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*S*2.1,cy+Math.sin(a)*S*2.1);ctx.lineTo(cx+Math.cos(a)*S*2.32,cy+Math.sin(a)*S*2.32);ctx.stroke();}
-    // ten arms (radiating), one bearing the trishul
-    ctx.strokeStyle="#f6c445";ctx.lineWidth=Math.max(3,S*0.07);ctx.lineCap="round";
-    for(let i=0;i<10;i++){ const a=-Math.PI/2+(i-4.5)*0.34; const len=S*(1.5+0.12*Math.sin(t*2+i));
-      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*len,cy+Math.sin(a)*len);ctx.stroke();
-      ctx.fillStyle="#fff6ea";ctx.beginPath();ctx.arc(cx+Math.cos(a)*len,cy+Math.sin(a)*len,S*0.06,0,7);ctx.fill();
+    ctx.save();ctx.translate(bow.x,bow.y);ctx.rotate(bow.angle+Math.PI/2);
+    if(weapon==="chakra"){ ctx.rotate(t*8);ctx.strokeStyle="#f6c445";ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,r*0.7,0,7);ctx.stroke();
+      ctx.fillStyle="#ffd98a";for(let k=0;k<8;k++){const a=k/8*6.28;ctx.beginPath();ctx.moveTo(Math.cos(a)*r*0.7,Math.sin(a)*r*0.7);ctx.lineTo(Math.cos(a)*r*0.95,Math.sin(a)*r*0.95);ctx.lineTo(Math.cos(a+0.3)*r*0.7,Math.sin(a+0.3)*r*0.7);ctx.closePath();ctx.fill();}
+    }else if(weapon==="vajra"){ ctx.strokeStyle="#bfe9ff";ctx.lineWidth=Math.max(3,r*0.14);ctx.lineCap="round";ctx.shadowColor="#8ad3ff";ctx.shadowBlur=10;
+      ctx.beginPath();ctx.moveTo(0,r*0.3);ctx.lineTo(-r*0.18,-r*0.3);ctx.lineTo(r*0.14,-r*0.4);ctx.lineTo(-r*0.1,-r*1.05);ctx.stroke();
+      ctx.beginPath();ctx.arc(0,r*0.35,r*0.16,0,7);ctx.stroke();ctx.shadowBlur=0;
+    }else{ // bow + nocked trishul-arrow (bow & trishul days)
+      ctx.strokeStyle="#f6c445";ctx.lineWidth=Math.max(3,r*0.16);ctx.lineCap="round";
+      const a1=Math.PI*0.62,a2=a1+Math.PI*1.76;ctx.beginPath();ctx.arc(0,0,r,a1,a2,false);ctx.stroke();
+      ctx.strokeStyle="rgba(255,246,234,.85)";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(Math.cos(a1)*r,Math.sin(a1)*r);ctx.lineTo(Math.cos(a2)*r,Math.sin(a2)*r);ctx.stroke();
+      ctx.strokeStyle="#39d98a";ctx.lineWidth=Math.max(2,r*0.12);ctx.beginPath();ctx.moveTo(0,r*0.2);ctx.lineTo(0,-r*1.1);ctx.stroke();
+      trishulTip(0,-r*1.15,r*0.5,"#39d98a");
     }
-    // trishul held high in the upper-right hand (modest, blessed white)
-    drawTrishulTip(cx+S*1.15, cy-S*1.15, S*0.6, "#fff6ea");
-    // body (saree) + head + halo
-    const bg=ctx.createLinearGradient(cx,cy-S,cx,cy+S*1.8);
-    bg.addColorStop(0,"#ffd98a");bg.addColorStop(1,"#e01f3d");
-    ctx.fillStyle=bg;
-    ctx.beginPath();ctx.moveTo(cx,cy-S*0.1);ctx.lineTo(cx-S*0.8,cy+S*1.8);ctx.quadraticCurveTo(cx,cy+S*2.0,cx+S*0.8,cy+S*1.8);ctx.closePath();ctx.fill();
-    ctx.fillStyle="#2a1a4a";ctx.beginPath();ctx.arc(cx,cy-S*0.35,S*0.34,0,7);ctx.fill(); // head
-    ctx.strokeStyle="#f6c445";ctx.lineWidth=Math.max(2,S*0.05);ctx.beginPath();ctx.arc(cx,cy-S*0.35,S*0.5,0,7);ctx.stroke(); // halo
-    // third eye bindi
+    ctx.restore();
+  }
+  function drawParticles(){particles.forEach(p=>{const a=1-p.life/p.max;ctx.globalAlpha=Math.max(0,a);ctx.fillStyle=p.col;ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,7);ctx.fill();});ctx.globalAlpha=1;}
+  function drawFloaters(){ctx.save();ctx.textAlign="center";floaters.forEach(f=>{const a=1-f.life/f.max;ctx.globalAlpha=Math.max(0,a);ctx.fillStyle="#39d98a";ctx.font="800 14px JetBrains Mono, DejaVu Sans Mono, monospace";ctx.fillText(f.txt,f.x,f.y);});ctx.restore();ctx.globalAlpha=1;}
+
+  // Maa Durga celebratory figure (win)
+  function drawDurga(){
+    const t=performance.now()/1000,cx=W/2,cy=H*0.34,S=Math.min(W,H)*0.16;
+    ctx.save();
+    const grd=ctx.createRadialGradient(cx,cy,S*0.2,cx,cy,S*3);grd.addColorStop(0,"rgba(246,196,69,.45)");grd.addColorStop(.5,"rgba(255,122,26,.12)");grd.addColorStop(1,"rgba(255,122,26,0)");
+    ctx.fillStyle=grd;ctx.fillRect(0,0,W,H*0.75);
+    ctx.strokeStyle="rgba(255,246,234,.5)";ctx.lineWidth=2;for(let k=0;k<2;k++){ctx.beginPath();ctx.arc(cx,cy,S*(2.1+k*0.22),0,7);ctx.stroke();}
+    ctx.strokeStyle="rgba(224,31,61,.55)";for(let i=0;i<24;i++){const a=i/24*6.28;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*S*2.1,cy+Math.sin(a)*S*2.1);ctx.lineTo(cx+Math.cos(a)*S*2.32,cy+Math.sin(a)*S*2.32);ctx.stroke();}
+    ctx.strokeStyle="#f6c445";ctx.lineWidth=Math.max(3,S*0.07);ctx.lineCap="round";
+    for(let i=0;i<10;i++){const a=-Math.PI/2+(i-4.5)*0.34,len=S*(1.5+0.12*Math.sin(t*2+i));
+      ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*len,cy+Math.sin(a)*len);ctx.stroke();
+      ctx.fillStyle="#fff6ea";ctx.beginPath();ctx.arc(cx+Math.cos(a)*len,cy+Math.sin(a)*len,S*0.06,0,7);ctx.fill();}
+    trishulTip(cx+S*1.15,cy-S*1.15,S*0.6,"#fff6ea");
+    const bg=ctx.createLinearGradient(cx,cy-S,cx,cy+S*1.8);bg.addColorStop(0,"#ffd98a");bg.addColorStop(1,"#e01f3d");
+    ctx.fillStyle=bg;ctx.beginPath();ctx.moveTo(cx,cy-S*0.1);ctx.lineTo(cx-S*0.8,cy+S*1.8);ctx.quadraticCurveTo(cx,cy+S*2.0,cx+S*0.8,cy+S*1.8);ctx.closePath();ctx.fill();
+    ctx.fillStyle="#2a1a4a";ctx.beginPath();ctx.arc(cx,cy-S*0.35,S*0.34,0,7);ctx.fill();
+    ctx.strokeStyle="#f6c445";ctx.lineWidth=Math.max(2,S*0.05);ctx.beginPath();ctx.arc(cx,cy-S*0.35,S*0.5,0,7);ctx.stroke();
     ctx.fillStyle="#e01f3d";ctx.beginPath();ctx.arc(cx,cy-S*0.42,S*0.05,0,7);ctx.fill();
     ctx.restore();
   }
 
-  // flow
-  function startGame(){
-    ensureAudio(); introScreen.hidden=true; winScreen.hidden=true;
-    hud.hidden=false; hint.hidden=false; reset(); state="playing";
+  // ---------- flow ----------
+  function showStory(i){
+    dayIdx=i; const d=DAYS[i];
+    $("sTithi").textContent=d.tithi; $("sName").textContent=d.name;
+    $("sStory").textContent=d.story;
+    $("sWeapon").innerHTML="weapon · <b>"+d.wname+"</b>";
+    hideScreens(); $("storyScreen").hidden=false; $("hud").hidden=true; $("hint").hidden=true;
+    state="story"; cardT=performance.now();
+  }
+  function beginDay(){
+    hideScreens(); spawnDay(dayIdx); ev("play");
+    $("hud").hidden=false; $("hint").hidden=false; $("hint").innerHTML=HINTS[weapon];
+    state="playing";
     if(demo) demoTimer=0.6;
   }
-  function showWin(){ state="win"; hud.hidden=true; hint.hidden=true; winScreen.hidden=false; sndWin(); }
-  startBtn.addEventListener("click",startGame);
-  againBtn.addEventListener("click",startGame);
+  function endDay(){
+    state="clear"; ev("clear"); sClear();
+    const acc=shotsFired?Math.round(shotsHit/shotsFired*100):100;
+    $("cTithi").textContent=DAYS[dayIdx].tithi+" cleared ✓";
+    $("cName").textContent=DAYS[dayIdx].name+" — cleared";
+    $("cStats").innerHTML=
+      stat("score",score)+stat("accuracy",acc+"%")+stat("best combo","×"+Math.min(maxCombo,10))+stat("asuras slain",killsTotal);
+    hideScreens(); $("clearScreen").hidden=false; $("hud").hidden=true; $("hint").hidden=true; cardT=performance.now();
+    $("clearBtn").textContent = (dayIdx>=DAYS.length-1) ? "▶ VIJAYA" : "▶ NEXT DAY";
+  }
+  function nextDay(){
+    if(dayIdx>=DAYS.length-1){ showWin(); }
+    else showStory(dayIdx+1);
+  }
+  function showWin(){
+    state="win"; ev("win"); sWin();
+    const acc=shotsFired?Math.round(shotsHit/shotsFired*100):100;
+    $("wStats").innerHTML=stat("final score",score)+stat("accuracy",acc+"%")+stat("best combo","×"+Math.min(maxCombo,10))+stat("asuras slain",killsTotal);
+    hideScreens(); $("winScreen").hidden=false; $("hud").hidden=true; $("hint").hidden=true;
+  }
+  function stat(k,v){return '<div class="stat"><div class="sk">'+k+'</div><div class="sv'+(String(v).length>5?' sm':'')+'">'+v+'</div></div>';}
+  function hideScreens(){["titleScreen","storyScreen","clearScreen","winScreen"].forEach(s=>$(s).hidden=true);}
 
-  // typed terminal intro
-  const termBox=document.getElementById("termBox");
+  function startCampaign(){
+    ensureAudio(); score=0;combo=0;maxCombo=0;shotsFired=0;shotsHit=0;killsTotal=0;
+    showStory(0);
+  }
+  $("startBtn").addEventListener("click",startCampaign);
+  $("storyBtn").addEventListener("click",beginDay);
+  $("clearBtn").addEventListener("click",nextDay);
+  $("againBtn").addEventListener("click",startCampaign);
+
+  // ---------- demo autoplay (for recording) ----------
+  let demoTimer=0;
+  function demoStep(dt){
+    demoTimer-=dt; if(demoTimer>0)return;
+    const boss=enemies.find(e=>e.alive&&e.boss);
+    const target=boss||enemies.find(e=>e.alive);
+    if(!target)return;
+    // lead the moving target a little
+    const lead=0.12; const tx=target.x+target.vx*lead, ty=target.y+target.vy*lead;
+    bow.angle=Math.atan2(ty-bow.y,tx-bow.x);
+    fireWeapon(bow.angle,{x:tx,y:ty});
+    demoTimer = weapon==="vajra"?0.42 : weapon==="chakra"?0.5 : 0.45;
+  }
+
+  // ---------- intro terminal ----------
   const lines=[
-    '<span class="c">$</span> ./bijoya-dashami --invoke maa-durga',
-    '<span class="r">⚠</span>  mahishasura.exe spawned <span class="w">10</span> asura threads',
-    '<span class="c">&gt;</span> ego anger greed pride lust',
-    '<span class="c">&gt;</span> envy attachment jealousy cruelty sloth',
-    '<span class="c">$</span> equip <span class="w">trishul-baan</span> · blessed by Maa Durga ✓',
+    '<span class="c">$</span> ./mahalaya --invoke',
+    '<span class="r">⚠</span>  mahishasura.exe — no man or god may kill him',
+    '<span class="c">&gt;</span> the gods pour their power into one goddess',
+    '<span class="c">&gt;</span> shiva:trishul  vishnu:chakra  indra:vajra …',
+    '<span class="c">$</span> <span class="w">Durga</span> booted · ten arms · ten weapons ✓',
   ];
   function typeIntro(){
-    if(reduce){termBox.innerHTML=lines.map(l=>'<div class="ln">'+l+'</div>').join("")+'<div class="ln"><span class="cursor"></span></div>';return;}
-    let li=0;
-    (function next(){ if(li>=lines.length){termBox.innerHTML+='<div class="ln"><span class="cursor"></span></div>';return;}
-      const d=document.createElement("div");d.className="ln";termBox.appendChild(d);d.innerHTML=lines[li];li++;setTimeout(next,500); })();
+    const tb=$("termBox");
+    if(reduce){tb.innerHTML=lines.map(l=>'<div class="ln">'+l+'</div>').join("")+'<div class="ln"><span class="cursor"></span></div>';return;}
+    let i=0;(function next(){if(i>=lines.length){tb.innerHTML+='<div class="ln"><span class="cursor"></span></div>';return;}
+      const d=document.createElement("div");d.className="ln";tb.appendChild(d);d.innerHTML=lines[i];i++;setTimeout(next,480);})();
+  }
+
+  // ---------- demo overseer: auto-advance cards ----------
+  let cardT=0;
+  function demoOverseer(){
+    if(!demo)return;
+    setInterval(()=>{
+      const now=performance.now();
+      if(state==="story" && now-cardT>2600) beginDay();
+      else if(state==="clear" && now-cardT>1600) nextDay();
+    },150);
   }
 
   function boot(){
     resize(); typeIntro(); requestAnimationFrame(frame);
-    if(demo) setTimeout(startGame, 3200);
+    if(demo){ setTimeout(()=>{ startCampaign(); demoOverseer(); }, 3600); }
   }
   if(window.claude&&window.claude.hot&&window.claude.hot.ready) window.claude.hot.ready(boot); else boot();
 })();
